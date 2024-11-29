@@ -1,0 +1,76 @@
+joy:
+  ros__parameters:
+    # device_name: /dev/input/joypad-f710
+    device_id: 0
+    deadzone: 0.01
+    autorepeat_rate: 20.0
+    coalesce_interval: 0.01
+
+joy_teleop:
+  ros__parameters:
+    default:
+      type: topic
+      interface_type: ackermann_msgs/msg/AckermannDriveStamped
+      topic_name: teleop
+      axis_mappings:
+        drive-speed:
+          axis: 1
+          scale: 0.0
+          offset: 0.0
+        drive-steering_angle:
+          axis: 2
+          scale: 0.0
+          offset: 0.0
+        # drive-jerk:  # Pode ser configurado para o controle de freio, se necessário
+        #   axis: 3
+        #   scale: 0.0  # Valor negativo para "desacelerar" ou aplicar o freio
+        #   offset: 0.0  # Sem offset adicional, o valor do eixo será diretamente aplicado
+
+    human_control:
+      type: topic
+      interface_type: ackermann_msgs/msg/AckermannDriveStamped
+      topic_name: teleop
+      deadman_buttons: [4]
+      axis_mappings:
+        drive-speed:
+          axis: 1
+          scale: 1.0
+          offset: 0.0
+        drive-steering_angle:
+          axis: 2
+          scale: 0.34
+          offset: 0.0
+
+    # human_control:
+    #   type: topic
+    #   interface_type: ackermann_msgs/msg/AckermannDriveStamped
+    #   topic_name: teleop
+    #   deadman_buttons: [4]
+    #   axis_mappings:
+    #     # Eixo 5 para aceleração (drive-speed)
+    #     drive-speed:
+    #       axis: 5
+    #       scale: 0.5   # A aceleração será proporcional ao valor do eixo 5
+    #       offset: 1.0  # Sem offset, o valor do eixo será diretamente aplicado
+
+    #     # Eixo 6 para travamento (drive-speed)
+    #     # Como a aceleração e o travamento são opostos, podemos usar escala negativa
+    #     # Para que a aceleração diminua quando o eixo 6 for movimentado.
+    #     drive-brake:  # Pode ser configurado para o controle de freio, se necessário
+    #       axis: 6
+    #       scale: -0.5  # Valor negativo para "desacelerar" ou aplicar o freio
+    #       offset: 1.0  # Sem offset adicional, o valor do eixo será diretamente aplicado
+
+    #     drive-steering_angle:
+    #       axis: 2
+    #       scale: 0.34
+    #       offset: 0.0
+
+    autonomous_control:
+      type: topic
+      interface_type: std_msgs/msg/Int8
+      topic_name: /dev/null
+      deadman_buttons: [5]
+      message_value:
+        data:
+          value: 0
