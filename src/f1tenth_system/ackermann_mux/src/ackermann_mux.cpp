@@ -88,7 +88,7 @@ void AckermannMux::init()
   /// Publisher for output topic:
   cmd_pub_ =
     this->create_publisher<ackermann_msgs::msg::AckermannDriveStamped>(
-    "ackermann_cmd",
+    "ackermann_drive_out",
     rclcpp::QoS(rclcpp::KeepLast(1)));
 
   /// Diagnostics:
@@ -124,7 +124,7 @@ void AckermannMux::getTopicHandles(const std::string & param_name, std::list<T> 
   try {
     for (auto prefix : list.prefixes) {
       RCLCPP_DEBUG(get_logger(), "Prefix: %s", prefix.c_str());
-[vesc_driver_node-5] [INFO] [1732895216.508338318] [vesc_driver_node]: -=60_MK6=- ha
+
       std::string topic;
       double timeout = 0;
       int priority = 0;
@@ -173,8 +173,9 @@ bool AckermannMux::hasPriority(const VelocityTopicHandle & ackermann)
 
   LockTopicHandle::priority_type priority = 0;
   std::string velocity_name = "NULL";
-[vesc_driver_node-5] [INFO] [173289521[vesc_[vesc_driver_node-5] [INFO] [1732895216.508338318] [vesc_driver_node]: -=60_MK6=- hadriver_node-5] [INFO] [1732895216.508338318] [vesc_driver_node]: -=60_MK6=- ha6.508338318] [vesc_driver_node]: -=60_MK6=- haty topic handles satisfying
-  /// that is NOT masked by the lock [vesc_driver_node-5] [INFO] [1732895216.508338318] [vesc_driver_node]: -=60_MK6=- hapriority:
+
+  /// max_element on the priority of velocity topic handles satisfying
+  /// that is NOT masked by the lock priority:
   for (const auto & velocity_h : *velocity_hs_) {
     if (!velocity_h.isMasked(lock_priority)) {
       const auto velocity_priority = velocity_h.getPriority();
