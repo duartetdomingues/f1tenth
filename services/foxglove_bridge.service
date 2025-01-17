@@ -1,0 +1,15 @@
+[Unit]
+Description=Foxglove Bridge Service
+After=network.target
+
+[Service]
+Type=simple
+User=jetson
+Group=jetson
+WorkingDirectory=/home/jetson
+ExecStart=/usr/bin/bash -c "source /opt/ros/humble/setup.bash && ros2 launch foxglove_bridge foxglove_bridge_launch.xml"
+Restart=on-failure
+#Environment=ROS_DOMAIN_ID=<domain_id>
+
+[Install]
+WantedBy=multi-user.target
