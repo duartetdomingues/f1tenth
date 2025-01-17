@@ -88,7 +88,7 @@ void AckermannMux::init()
   /// Publisher for output topic:
   cmd_pub_ =
     this->create_publisher<ackermann_msgs::msg::AckermannDriveStamped>(
-    "ackermann_drive_out",
+    "ackermann_cmd",
     rclcpp::QoS(rclcpp::KeepLast(1)));
 
   /// Diagnostics:
@@ -177,7 +177,7 @@ bool AckermannMux::hasPriority(const VelocityTopicHandle & ackermann)
   /// max_element on the priority of velocity topic handles satisfying
   /// that is NOT masked by the lock priority:
   for (const auto & velocity_h : *velocity_hs_) {
-
+    
     if (!velocity_h.isMasked(lock_priority)) {
       const auto velocity_priority = velocity_h.getPriority();
       if (priority < velocity_priority) {

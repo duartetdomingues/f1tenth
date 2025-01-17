@@ -45,7 +45,7 @@ joy_teleop:
       type: topic
       interface_type: ackermann_msgs/msg/AckermannDriveStamped
       topic_name: teleop
-      deadman_buttons: [2]
+      deadman_buttons: [1]
       axis_mappings:
         # Eixo 5 para aceleração (drive-speed)
         drive-speed:

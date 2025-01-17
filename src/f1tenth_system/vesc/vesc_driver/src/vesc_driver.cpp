@@ -426,15 +426,11 @@ double VescDriver::CommandLimit::clip(double value)
   auto clock = rclcpp::Clock(RCL_ROS_TIME);
 
   if (lower && value < lower) {
-    RCLCPP_INFO_THROTTLE(
-      logger, clock, 10, "%s command value (%f) below minimum limit (%f), clipping.",
-      name.c_str(), value, *lower);
+    // RCLCPP_INFO_THROTTLE(logger, clock, 10, "%s command value (%f) below minimum limit (%f), clipping.", name.c_str(), value, *lower);
     return *lower;
   }
   if (upper && value > upper) {
-    RCLCPP_INFO_THROTTLE(
-      logger, clock, 10, "%s command value (%f) above maximum limit (%f), clipping.",
-      name.c_str(), value, *upper);
+    // RCLCPP_INFO_THROTTLE( logger, clock, 10, "%s command value (%f) above maximum limit (%f), clipping.", name.c_str(), value, *upper);
     return *upper;
   }
   return value;
