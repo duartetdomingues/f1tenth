@@ -29,6 +29,7 @@ from launch.actions import IncludeLaunchDescription
 from launch_xml.launch_description_sources import XMLLaunchDescriptionSource
 from ament_index_python.packages import get_package_share_directory
 import os
+from rclpy.qos import QoSProfile, ReliabilityPolicy
 
 def generate_launch_description():
     joy_teleop_config = os.path.join(
@@ -70,6 +71,7 @@ def generate_launch_description():
         description='Descriptions for ackermann mux configs')
 
     ld = LaunchDescription([joy_la, vesc_la, sensors_la, mux_la])
+    qos = QoSProfile(depth=1, reliability=ReliabilityPolicy.BEST_EFFORT)
 
     joy_node = Node(
         package='joy',
@@ -81,13 +83,15 @@ def generate_launch_description():
         package='joy_teleop',
         executable='joy_teleop',
         name='joy_teleop',
-        parameters=[LaunchConfiguration('joy_config')]
+        parameters=[LaunchConfiguration('joy_config')],
+        qos_profile=qos
     )
     ackermann_to_vesc_node = Node(
         package='vesc_ackermann',
         executable='ackermann_to_vesc_node',
         name='ackermann_to_vesc_node',
-        parameters=[LaunchConfiguration('vesc_config')]
+        parameters=[LaunchConfiguration('vesc_config')],
+        qos_profile=qos
     )
     vesc_to_odom_node = Node(
         package='vesc_ackermann',
