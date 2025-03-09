@@ -52,12 +52,6 @@ def generate_launch_description():
         'mux.yaml'
     )
 
-    zed_config = os.path.join(
-        get_package_share_directory('f1tenth_stack'), 
-        'config', 
-        'zed2i.yaml'
-    )
-
     joy_la = DeclareLaunchArgument(
         'joy_config',
         default_value=joy_teleop_config,
@@ -74,14 +68,8 @@ def generate_launch_description():
         'mux_config',
         default_value=mux_config,
         description='Descriptions for ackermann mux configs')
-    
-    zed_la = DeclareLaunchArgument(
-        'zed_config',
-        default_value=zed_config,
-        description='Descriptions for zed camera configs'
-    )
 
-    ld = LaunchDescription([joy_la, vesc_la, lidar_la, mux_la, zed_la])
+    ld = LaunchDescription([joy_la, vesc_la, lidar_la, mux_la])
 
     joy_node = Node(
         package='joy',
@@ -119,14 +107,12 @@ def generate_launch_description():
         name='throttle_interpolator',
         parameters=[LaunchConfiguration('vesc_config')]
     )
-
     urg_node = Node(
         package='urg_node',
         executable='urg_node_driver',
         name='urg_node',
         parameters=[LaunchConfiguration('lidar_config')]
     )
-    
     ackermann_mux_node = Node(
         package='ackermann_mux',
         executable='ackermann_mux',
@@ -141,23 +127,15 @@ def generate_launch_description():
         arguments=['0.27', '0.0', '0.11', '0.0', '0.0', '0.0', 'base_link', 'laser']
     )
 
-    #ed_node = Node(
-    #   package='zed_wrapper',
-    #   executable='zed_camera'
-    #   name='zed_wrapper',
-    #   parameters=[LaunchConfiguration('zed_config')]
-    #
-
     # finalize
     ld.add_action(joy_node)
     ld.add_action(joy_teleop_node)
     ld.add_action(ackermann_to_vesc_node)
     ld.add_action(vesc_to_odom_node)
     ld.add_action(vesc_driver_node)
-    #ld.add_action(throttle_interpolator_node)
+    ld.add_action(throttle_interpolator_node)
     ld.add_action(urg_node)
     ld.add_action(ackermann_mux_node)
     ld.add_action(static_tf_node)
-    #d.add_action(zed_node)
 
     return ld
