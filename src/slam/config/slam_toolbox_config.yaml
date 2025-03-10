@@ -1,0 +1,6 @@
+slam_toolbox:
+  ros__parameters:
+    odom_frame : "odom"
+    map_frame : "map"
+    base_frame : "laser"
+    scan_topic : "/scan"

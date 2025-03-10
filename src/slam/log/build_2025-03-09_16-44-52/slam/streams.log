@@ -1,0 +1,24 @@
+[0.342s] Invoking command in '/home/desktop/f1tenth/src/slam': PYTHONPATH=/home/desktop/f1tenth/src/slam/build/slam/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/desktop/f1tenth/src/slam/install/slam/lib/python3.10/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated -W ignore:easy_install command is deprecated setup.py egg_info --egg-base build/slam build --build-base /home/desktop/f1tenth/src/slam/build/slam/build install --record /home/desktop/f1tenth/src/slam/build/slam/install.log --single-version-externally-managed install_data
+[0.474s] running egg_info
+[0.474s] writing build/slam/slam.egg-info/PKG-INFO
+[0.474s] writing dependency_links to build/slam/slam.egg-info/dependency_links.txt
+[0.474s] writing entry points to build/slam/slam.egg-info/entry_points.txt
+[0.474s] writing requirements to build/slam/slam.egg-info/requires.txt
+[0.474s] writing top-level names to build/slam/slam.egg-info/top_level.txt
+[0.475s] reading manifest file 'build/slam/slam.egg-info/SOURCES.txt'
+[0.476s] writing manifest file 'build/slam/slam.egg-info/SOURCES.txt'
+[0.476s] running build
+[0.476s] running build_py
+[0.476s] running install
+[0.476s] running install_lib
+[0.477s] running install_data
+[0.477s] creating /home/desktop/f1tenth/src/slam/install/slam/share/slam/launch
+[0.477s] copying launch/slam_toolbox_launch.py -> /home/desktop/f1tenth/src/slam/install/slam/share/slam/launch
+[0.477s] creating /home/desktop/f1tenth/src/slam/install/slam/share/slam/config
+[0.477s] copying config/slam_toolbox_config.yaml -> /home/desktop/f1tenth/src/slam/install/slam/share/slam/config
+[0.477s] running install_egg_info
+[0.478s] removing '/home/desktop/f1tenth/src/slam/install/slam/lib/python3.10/site-packages/slam-0.0.0-py3.10.egg-info' (and everything under it)
+[0.478s] Copying build/slam/slam.egg-info to /home/desktop/f1tenth/src/slam/install/slam/lib/python3.10/site-packages/slam-0.0.0-py3.10.egg-info
+[0.478s] running install_scripts
+[0.489s] writing list of installed files to '/home/desktop/f1tenth/src/slam/build/slam/install.log'
+[0.501s] Invoked command in '/home/desktop/f1tenth/src/slam' returned '0': PYTHONPATH=/home/desktop/f1tenth/src/slam/build/slam/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/desktop/f1tenth/src/slam/install/slam/lib/python3.10/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated -W ignore:easy_install command is deprecated setup.py egg_info --egg-base build/slam build --build-base /home/desktop/f1tenth/src/slam/build/slam/build install --record /home/desktop/f1tenth/src/slam/build/slam/install.log --single-version-externally-managed install_data
