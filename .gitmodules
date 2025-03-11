@@ -3,4 +3,4 @@
 	url = https://github.com/NVIDIA-AI-IOT/ros2_jetson_stats.git
 [submodule "src/f1tenth_system/vesc"]
 	path = src/f1tenth_system/vesc
-	url = git@github.com:f1tenth/vesc.git
+	url = git@github.com:duartetdomingues/vesc.git
