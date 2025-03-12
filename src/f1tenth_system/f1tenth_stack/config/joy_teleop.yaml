@@ -35,12 +35,12 @@ joy_teleop:
       axis_mappings:
         drive-acceleration:
           axis: 5
-          scale: -1.0
-          offset: 1.0
+          scale: -0.1
+          offset: 0.1
         drive-jerk:
           axis: 4
-          scale: -1.0
-          offset: 1.0
+          scale: -0.1
+          offset: 0.1
         drive-steering_angle:
           axis: 0
           scale: 0.34
