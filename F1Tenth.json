@@ -30,21 +30,21 @@
       "paths": [
         {
           "timestampMethod": "receiveTime",
-          "value": "/sensors/imu.imu.angular_velocity.x",
+          "value": "/vesc/imu.imu.angular_velocity.x",
           "enabled": true,
           "color": "#4e98e2",
           "label": "x"
         },
         {
           "timestampMethod": "receiveTime",
-          "value": "/sensors/imu.imu.angular_velocity.y",
+          "value": "/vesc/imu.imu.angular_velocity.y",
           "enabled": true,
           "color": "#f5774d",
           "label": "y"
         },
         {
           "timestampMethod": "receiveTime",
-          "value": "/sensors/imu.imu.angular_velocity.z",
+          "value": "/vesc/imu.imu.angular_velocity.z",
           "enabled": true,
           "color": "#f7df71",
           "label": "z"
@@ -64,35 +64,35 @@
       "paths": [
         {
           "timestampMethod": "receiveTime",
-          "value": "/sensors/core.state.temp_fet",
+          "value": "/vesc/core.state.temp_fet",
           "enabled": true,
           "color": "#4e98e2",
           "label": "fet"
         },
         {
           "timestampMethod": "receiveTime",
-          "value": "/sensors/core.state.temp_motor",
+          "value": "/vesc/core.state.temp_motor",
           "enabled": true,
           "color": "#f5774d",
           "label": "motor"
         },
         {
           "timestampMethod": "receiveTime",
-          "value": "/sensors/core.state.ntc_temp_mos1",
+          "value": "/vesc/core.state.ntc_temp_mos1",
           "enabled": true,
           "color": "#f7df71",
           "label": "mos1"
         },
         {
           "timestampMethod": "receiveTime",
-          "value": "/sensors/core.state.ntc_temp_mos2",
+          "value": "/vesc/core.state.ntc_temp_mos2",
           "enabled": true,
           "color": "#5cd6a9",
           "label": "mos2"
         },
         {
           "timestampMethod": "receiveTime",
-          "value": "/sensors/core.state.ntc_temp_mos3",
+          "value": "/vesc/core.state.ntc_temp_mos3",
           "enabled": true,
           "color": "#61cbff",
           "label": "mos3"
@@ -112,21 +112,21 @@
       "paths": [
         {
           "timestampMethod": "receiveTime",
-          "value": "/sensors/imu.imu.linear_acceleration.x",
+          "value": "/vesc/imu.imu.linear_acceleration.x",
           "enabled": true,
           "color": "#4e98e2",
           "label": "x"
         },
         {
           "timestampMethod": "receiveTime",
-          "value": "/sensors/imu.imu.linear_acceleration.y",
+          "value": "/vesc/imu.imu.linear_acceleration.y",
           "enabled": true,
           "color": "#f5774d",
           "label": "y"
         },
         {
           "timestampMethod": "receiveTime",
-          "value": "/sensors/imu.imu.linear_acceleration.z",
+          "value": "/vesc/imu.imu.linear_acceleration.z",
           "enabled": true,
           "color": "#f7df71",
           "label": "z"
@@ -146,13 +146,13 @@
       "paths": [
         {
           "timestampMethod": "receiveTime",
-          "value": "/sensors/core.state.current_motor",
+          "value": "/vesc/core.state.current_motor",
           "enabled": true,
           "color": "#4e98e2"
         },
         {
           "timestampMethod": "receiveTime",
-          "value": "/sensors/core.state.current_input",
+          "value": "/vesc/core.state.current_input",
           "enabled": true,
           "color": "#f5774d"
         }
@@ -170,21 +170,21 @@
       "paths": [
         {
           "timestampMethod": "receiveTime",
-          "value": "/sensors/imu.imu.ypr.x",
+          "value": "/vesc/imu.imu.ypr.x",
           "enabled": true,
           "color": "#4e98e2",
           "label": "pitch"
         },
         {
           "timestampMethod": "receiveTime",
-          "value": "/sensors/imu.imu.ypr.y",
+          "value": "/vesc/imu.imu.ypr.y",
           "enabled": true,
           "color": "#f5774d",
           "label": "roll"
         },
         {
           "timestampMethod": "receiveTime",
-          "value": "/sensors/imu.imu.ypr.z",
+          "value": "/vesc/imu.imu.ypr.z",
           "enabled": true,
           "color": "#f7df71",
           "label": "yaw"
@@ -204,7 +204,7 @@
       "paths": [
         {
           "timestampMethod": "receiveTime",
-          "value": "/sensors/core.state.speed",
+          "value": "/vesc/core.state.speed",
           "enabled": true,
           "color": "#4e98e2"
         }
@@ -223,7 +223,7 @@
       "diffMethod": "custom",
       "diffTopicPath": "",
       "showFullMessageForDiff": false,
-      "topicPath": "/sensors/core.state.voltage_input",
+      "topicPath": "/vesc/core.state.voltage_input",
       "fontSize": 12
     },
     "Plot!3q8sglk": {

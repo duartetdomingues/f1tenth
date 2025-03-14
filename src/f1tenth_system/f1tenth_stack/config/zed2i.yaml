@@ -86,7 +86,7 @@
             publish_tf: true # [usually overwritten by launch file] publish `odom -> camera_link` TF
             publish_map_tf: true # [usually overwritten by launch file] publish `map -> odom` TF
             map_frame: 'map'
-            odometry_frame: 'odom1'
+            odometry_frame: 'odom_zed'
             area_memory_db_path: ''
             area_memory: true # Enable to detect loop closure
             reset_odom_with_loop_closure: true # Re-initialize odometry to the last valid pose when loop closure happens (reset camera odometry drift)

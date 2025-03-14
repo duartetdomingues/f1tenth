@@ -1,0 +1,46 @@
+ekf_filter_node:
+  ros__parameters:
+    frequency: 50.0
+    two_d_mode: False
+    publish_tf: True
+    odom_frame: "odom"
+    base_link_frame: "base_link"
+    world_frame: "odom"
+    sensor_timeout: 2.0 # segundo de espera antes de declarar timeout
+    publish_acceleration: True
+    
+    odom0: "vesc/odom"
+    odom0_config: [true, true, false,  # X, Y, Z
+                   false, false, true,  # Roll, Pitch, Yaw
+                   true, true, false,  # dX, dY, dZ
+                   false, false, true,  # dRoll, dPitch, dYaw
+                   false, false, false]  # Acceleration (X, Y, Z)
+
+    #odom1: "zed/zed_node/odom"
+    #odom1_config: [true, true, false,
+    #               false, false, true,
+    #               true, true, false,
+    #               false, false, true,
+    #               false, false, false]
+#
+    #imu0: "imu/data"
+    #imu0_config: [true, true, true,
+    #              true, true, true,
+    #              true, true, true,
+    #              true, true, true,
+    #              true, true, true]
+    
+    imu0: "vesc/imu/raw"
+    imu0_config: [true, true, true,
+                  true, true, true,
+                  true, true, true,
+                  true, true, true,
+                  true, true, true]
+    
+    
+    #imu1: "zed/zed_node/imu/data"
+    #imu0_config: [true, true, true,
+    #              true, true, true,
+    #              true, true, true,
+    #              true, true, true,
+    #              true, true, true]

@@ -58,6 +58,25 @@ def generate_launch_description():
         'zed2i.yaml'
     )
 
+    robot_localization_config = os.path.join(
+        get_package_share_directory('f1tenth_stack'),
+        'config',
+        'robot_localization.yaml'
+    )
+
+    xsens_config = os.path.join(
+        get_package_share_directory('f1tenth_stack'),
+        'config',
+        'xsens.yaml'
+    )
+
+    slam_config = os.path.join(
+        get_package_share_directory('f1tenth_stack'),
+        'config',
+        'slam.yaml'
+    )
+
+
     joy_la = DeclareLaunchArgument(
         'joy_config',
         default_value=joy_teleop_config,
@@ -81,7 +100,25 @@ def generate_launch_description():
         description='Descriptions for zed camera configs'
     )
 
-    ld = LaunchDescription([joy_la, vesc_la, lidar_la, mux_la, zed_la])
+    xsens_la = DeclareLaunchArgument(
+        'xsens_config',
+        default_value=xsens_config,
+        description='Descriptions for xsens imu configs'
+    )
+
+    robot_localization_la = DeclareLaunchArgument(
+        'robot_localization_config',
+        default_value=robot_localization_config,
+        description='Descriptions for robot localization configs'
+    )
+
+    slam_la = DeclareLaunchArgument(
+        'slam_config',
+        default_value=slam_config,
+        description='Descriptions for slam configs'
+    )
+
+    ld = LaunchDescription([joy_la, vesc_la, lidar_la, mux_la, zed_la, robot_localization_la, xsens_la, slam_la])
 
     joy_node = Node(
         package='joy',
@@ -134,6 +171,7 @@ def generate_launch_description():
         parameters=[LaunchConfiguration('mux_config')],
         remappings=[('ackermann_cmd_out', 'ackermann_drive')]
     )
+
     static_tf_node = Node(
         package='tf2_ros',
         executable='static_transform_publisher',
@@ -141,12 +179,46 @@ def generate_launch_description():
         arguments=['0.27', '0.0', '0.11', '0.0', '0.0', '0.0', 'base_link', 'laser']
     )
 
-    #ed_node = Node(
-    #   package='zed_wrapper',
-    #   executable='zed_camera'
-    #   name='zed_wrapper',
-    #   parameters=[LaunchConfiguration('zed_config')]
-    #
+    static_tf_node2 = Node(
+        package='tf2_ros',
+        executable='static_transform_publisher',
+        name='static_baselink_to_vesc',
+        arguments=['0.0', '0.0','0.0','0.0','3.14159', '-1.5708', 'base_link', 'vesc']
+    )
+
+
+
+
+    """ zed_node = Node(
+       package='zed_wrapper',
+       executable='zed_camera'
+       name='zed_wrapper',
+       parameters=[LaunchConfiguration('zed_config')]
+    ) """
+
+    robot_localization_node = Node(
+        package='robot_localization',
+        executable='ekf_node',
+        name='ekf_node',
+        output='screen',
+        parameters=[LaunchConfiguration('robot_localization_config')]
+    )
+
+    xsens_node = Node(
+        package='xsens_mti_ros2_driver',
+        executable='xsens_mti_node',
+        name='xsens_mti_node',
+        parameters=[LaunchConfiguration('xsens_config')]
+    )
+
+    slam_node = Node(
+        package='slam_toolbox',
+        executable='map_and_localization_slam_toolbox_node',
+        name='slam_toolbox',
+        parameters=[LaunchConfiguration('slam_config')]
+    )
+ 
+    
 
     # finalize
     ld.add_action(joy_node)
@@ -158,6 +230,10 @@ def generate_launch_description():
     ld.add_action(urg_node)
     ld.add_action(ackermann_mux_node)
     ld.add_action(static_tf_node)
-    #d.add_action(zed_node)
+    #ld.add_action(static_tf_node2)
+    #ld.add_action(zed_node)
+    #ld.add_action(robot_localization_node)
+    ld.add_action(xsens_node)
+    #ld.add_action(slam_node)
 
     return ld

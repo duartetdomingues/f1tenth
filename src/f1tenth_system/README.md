@@ -13,8 +13,8 @@ On Logitech F-710 joysticks, the LB button is the deadman's switch for teleop, a
 ### Sensor topics published by the driver stack
 - `/scan`: Topic for `LaserScan` messages.
 - `/odom`: Topic for `Odometry` messages.
-- `/sensors/imu/raw`: Topic for `Imu` messages.
-- `/sensors/core`: Topic for telemetry data from the VESC
+- `/vesc/imu/raw`: Topic for `Imu` messages.
+- `/vesc/core`: Topic for telemetry data from the VESC
 
 ## External Dependencies
 
@@ -52,10 +52,10 @@ On Logitech F-710 joysticks, the LB button is the deadman's switch for teleop, a
    - position_min, position_max
    - servo_min, servo_max
 2. Publishes to:
-   - sensors/core
-   - sensors/servo_position_command
-   - sensors/imu
-   - sensors/imu/raw
+   - vesc/core
+   - vesc/servo_position_command
+   - vesc/imu
+   - vesc/imu/raw
 3. Subscribes to:
    - commands/motor/duty_cycle
    - commands/motor/current
@@ -92,8 +92,8 @@ On Logitech F-710 joysticks, the LB button is the deadman's switch for teleop, a
 2. Publishes to:
    - odom
 3. Subscribes to:
-   - sensors/core
-   - sensors/servo_position_command
+   - vesc/core
+   - vesc/servo_position_command
 
 ### throttle_interpolator
 

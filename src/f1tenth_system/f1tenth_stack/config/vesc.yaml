@@ -10,7 +10,7 @@
     steering_angle_to_servo_offset: 0.47 #right turn is positive
 
     #port: /dev/sensors/vesc
-    port: "/dev/ttyACM1"
+    port: "/dev/serial/by-id/usb-STMicroelectronics_ChibiOS_RT_Virtual_COM_Port_304-if00" #"/dev/ttyACM1"
     duty_cycle_min: -0.3
     duty_cycle_max: 0.3
     current_min: 0.0
@@ -30,10 +30,10 @@
 
 vesc_to_odom_node:
   ros__parameters:
-    odom_frame: odom
+    odom_frame: odom_vesc
     base_frame: base_link
     # publish odom to base link tf
-    publish_tf: true
+    publish_tf: false
     use_servo_cmd_to_calc_angular_velocity: true
     # car wheelbase is about 25cm
     wheelbase: 0.32
