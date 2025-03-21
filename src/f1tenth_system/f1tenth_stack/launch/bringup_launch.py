@@ -142,6 +142,7 @@ def generate_launch_description():
         package='vesc_ackermann',
         executable='vesc_to_odom_node',
         name='vesc_to_odom_node',
+        output='screen',
         parameters=[LaunchConfiguration('vesc_config')]
     )
     vesc_driver_node = Node(
@@ -172,18 +173,25 @@ def generate_launch_description():
         remappings=[('ackermann_cmd_out', 'ackermann_drive')]
     )
 
-    static_tf_node = Node(
+    static_tf_node_laser = Node(
         package='tf2_ros',
         executable='static_transform_publisher',
         name='static_baselink_to_laser',
-        arguments=['0.27', '0.0', '0.11', '0.0', '0.0', '0.0', 'base_link', 'laser']
+        arguments=['0.08', '0.0', '0.11', '0.0', '0.0', '0.0', 'base_link', 'laser']
     )
 
-    static_tf_node2 = Node(
+    static_tf_node_vesc = Node(
         package='tf2_ros',
         executable='static_transform_publisher',
         name='static_baselink_to_vesc',
-        arguments=['0.0', '0.0','0.0','0.0','3.14159', '-1.5708', 'base_link', 'vesc']
+        arguments=['0.0', '0.0','0.05','-1.5708','0.0', '0.0', 'base_link', 'vesc']
+    )
+
+    static_tf_node_xsens = Node(
+        package='tf2_ros',
+        executable='static_transform_publisher',
+        name='static_baselink_to_vesc',
+        arguments=['0.0', '-0.01','0.0','1.5708','0.0', '3.141', 'base_link', 'xsens']
     )
 
 
@@ -199,9 +207,19 @@ def generate_launch_description():
     robot_localization_node = Node(
         package='robot_localization',
         executable='ekf_node',
-        name='ekf_node',
+        name='ekf_filter_node',
         output='screen',
-        parameters=[LaunchConfiguration('robot_localization_config')]
+        parameters=[os.path.join(get_package_share_directory("f1tenth_stack"), 'config', 'robot_localization.yaml')],
+    )
+
+    path_robot_localization_node = Node(
+            package='odom_to_path',
+            executable='odom_to_path',
+            name='odom_to_path',
+            output='screen',
+            parameters=[
+                {"odom_topic": "/odom"}
+            ]
     )
 
     xsens_node = Node(
@@ -221,7 +239,13 @@ def generate_launch_description():
     
 
     # finalize
+    #tfs
+    ld.add_action(static_tf_node_laser)
+    ld.add_action(static_tf_node_vesc)
+    ld.add_action(static_tf_node_xsens)
+
     ld.add_action(joy_node)
+
     ld.add_action(joy_teleop_node)
     ld.add_action(ackermann_to_vesc_node)
     ld.add_action(vesc_to_odom_node)
@@ -229,10 +253,13 @@ def generate_launch_description():
     #ld.add_action(throttle_interpolator_node)
     ld.add_action(urg_node)
     ld.add_action(ackermann_mux_node)
-    ld.add_action(static_tf_node)
-    #ld.add_action(static_tf_node2)
+   
+
     #ld.add_action(zed_node)
     #ld.add_action(robot_localization_node)
+    #ld.add_action(path_robot_localization_node)
+
+
     ld.add_action(xsens_node)
     #ld.add_action(slam_node)
 

@@ -1,6 +1,8 @@
 slam_toolbox:
   ros__parameters:
-    odom_frame : "odom_slam"
-    map_frame : "map"
+    odom_frame : "odom_vesc"
+    map_frame : "world"
     base_frame : "laser"
     scan_topic : "/scan"
+    scan_queue_size : 2
+    use_scan_matching : true

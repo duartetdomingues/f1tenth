@@ -22,14 +22,34 @@ from launch.substitutions import EnvironmentVariable
 import pathlib
 import launch.actions
 from launch.actions import DeclareLaunchArgument
+from launch_ros.actions import Node
 
 def generate_launch_description():
-    return LaunchDescription([
-        launch_ros.actions.Node(
-            package='robot_localization',
-            executable='ekf_node',
-            name='ekf_filter_node',
+
+    robot_localization_node = Node(
+        package='robot_localization',
+        executable='ekf_node',
+        name='ekf_filter_node',
+        output='screen',
+        parameters=[os.path.join(get_package_share_directory("f1tenth_stack"), 'config', 'robot_localization.yaml')],
+    )
+
+  
+   
+
+    path_robot_localization_node = Node(
+            package='odom_to_path',
+            executable='odom_to_path',
+            name='odom_to_path',
             output='screen',
-            parameters=[os.path.join(get_package_share_directory("f1tenth_stack"), 'config', 'robot_localization.yaml')],
-           ),
-])
+            parameters=[
+                {"odom_topic": "/odometry/filtered"},
+            ]
+    )
+
+    ld = LaunchDescription()
+
+    ld.add_action(robot_localization_node)
+    ld.add_action(path_robot_localization_node)
+
+    return ld
