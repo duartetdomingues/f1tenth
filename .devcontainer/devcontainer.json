@@ -32,9 +32,9 @@
         "--pid=host",
         "--ipc=host",
         "-e",
-        "DISPLAY=${env:DISPLAY}",
-        "--gpus",
-        "all"
+        "DISPLAY=${env:DISPLAY}"
+        //"--gpus",
+        //"all"
     ],
     "mounts": [
         "source=/tmp/.X11-unix,target=/tmp/.X11-unix,type=bind,consistency=cached",

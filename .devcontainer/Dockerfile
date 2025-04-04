@@ -1,4 +1,4 @@
-FROM ros:humble
+FROM osrf/ros:humble-desktop
 ARG USERNAME=ros
 ARG USER_UID=1000
 ARG USER_GID=$USER_UID
@@ -17,10 +17,10 @@ RUN groupadd --gid $USER_GID $USERNAME \
     && chmod 0440 /etc/sudoers.d/$USERNAME
 RUN apt-get update && apt-get upgrade -y
 RUN apt-get install -y python3-pip
-RUN apt-get install ros-humble-foxglove-bridge
-RUN apt-get install ros-humble-plotjuggler-ros
+RUN apt-get install -y ros-humble-foxglove-bridge
+RUN apt-get install -y ros-humble-plotjuggler-ros
 
-ENV SHELL /bin/bash
+ENV SHELL=/bin/bash
 
 # ********************************************************
 # * Anything else you want to do like clean up goes here *
