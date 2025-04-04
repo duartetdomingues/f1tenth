@@ -191,7 +191,7 @@ def generate_launch_description():
         package='tf2_ros',
         executable='static_transform_publisher',
         name='static_baselink_to_vesc',
-        arguments=['0.0', '-0.01','0.0','1.5708','0.0', '3.141', 'base_link', 'xsens']
+        arguments=['0.0', '-0.01','0.0','-1.5708','0.0', '3.141', 'base_link', 'xsens']
     )
 
 
