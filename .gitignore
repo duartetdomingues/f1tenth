@@ -5,4 +5,4 @@ log/*
 /__pycache__/*
 *.pyc
 **/*.pyc
-!spec/*.o
+*.o
