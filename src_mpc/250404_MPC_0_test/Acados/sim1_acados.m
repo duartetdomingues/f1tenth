@@ -5,12 +5,12 @@ close all
 %
 
 
-compile_solver=false;
+compile_solver=true;
 
 Ts = 1/10;      % Tempo de amostragem (20 Hz)
 T_total = 20; % Tempo de sim
 % Definir o horizonte de predição
-N = 5; % Horizonte do MPC
+N = 20; % Horizonte do MPC
 
 L = 0.35; % Distância entre eixos
 servo_gain=-0.840; % Ganho do servo (rad/unidade)
@@ -21,17 +21,24 @@ v_max = 1;        % Velocidade máxima (m/s)
 
 delta_max = abs(servo_max/servo_gain); % Ângulo máximo de direção (radianos)
 
+v_ref = 1.0;  % m/s
+
 N_total = 100;  % Numeros de pontos traj
 n = (2*pi)/N_total;
 x_traj = 2.5 * cos(0:n:2*pi);
 y_traj = 1.75 * sin(0:n:2*pi);
+dx = diff(x_traj);              % tamanho N-1
+dy = diff(y_traj);              % tamanho N-1
+psi_traj =atan2(dy, dx);           % heading entre pontos consecutivos
+psi_traj(end+1) = psi_traj(end);     % repetir o último valor → agora tamanho N
+
 %plot(x_traj, y_traj, 'r.', 'MarkerSize', 10);
 %axis equal
 
-v_ref = 1.0;  % m/s
+
 
 % Parâmetros do MPC
-Q = diag([20, 20, 1, 1, 5]);  % Ponderação dos estados
+Q = diag([10, 10, 10, 10, 1]);  % [x, y, psi, theta, v]
 R = diag([0.1, 0.1]);       % Ponderação dos controles
 
 check_acados_requirements()
@@ -40,7 +47,7 @@ addpath(genpath(pwd))
 % ------ Setup do ACADOS ------
 import casadi.*
 
-if(compile_solver)
+if(compile_solver || ~exist('solver', 'var') )
     clear solver
     solver = setup_ocp(N, Ts, Q, R, delta_max, v_max);  % <- Verifica se tens este ficheiro
     save('solver_data.mat', 'solver');
@@ -59,6 +66,8 @@ end
 % Estado inicial
 x = [2.5; 0; pi/2;0; 0]; % [x, y, psi, theta, v]
 history = x';
+u0=[0;0];
+u_history=u0';
 
 % Gráfico Trajetoria
 figure; hold on; grid on;
@@ -74,49 +83,77 @@ xlim([-3,3])
 axis equal
 
 figure;
+sgtitle('Estados');
 subplot(3,1,1);
 p_angle=plot(0, 0, 'b-', 'LineWidth', 2);
 xlabel('Tempo [s]');
 ylabel('Ângulo de direção [rad]');
-title('Ângulo de direção do veículo');
 subplot(3,1,2);
 p_v=plot(0, 0, 'b-', 'LineWidth', 2);
 xlabel('Tempo [s]');
 ylabel('Velocidade [m/s]');
-title('Velocidade do veículo');
 subplot(3,1,3);
 p_psi=plot(0, 0, 'b-', 'LineWidth', 2);
 xlabel('Tempo [s]');
 ylabel('PSI [rad]');
-title('Orientaçao do veículo')
+
+
+
+figure;
+sgtitle('Inputs');
+subplot(2,1,1);
+p_u1=plot(0, 0, 'b-', 'LineWidth', 2);
+xlabel('Tempo [s]');
+ylabel('Ângulo de direção [rad]');
+subplot(2,1,2);
+p_u2=plot(0, 0, 'b-', 'LineWidth', 2);
+ylabel('Velocidade [m/s]');
+xlabel('Tempo [s]');
 
 % Loop principal do MPC
 for t_idx = 1:T_total/Ts-1
     % Trajetória de referência para o horizonte atual
 
+        % 1. Encontrar o ponto mais próximo da posição atual
     distances = sqrt((x_traj - x(1)).^2 + (y_traj - x(2)).^2);
-    [~, idx_ref_start] = min(distances);  % Índice do ponto mais próximo
+    [~, idx_ref_start] = min(distances);
+    
+    % 2. Calcular distância acumulada da trajetória
+    dx = diff(x_traj);
+    dy = diff(y_traj);
+    ds = sqrt(dx.^2 + dy.^2);
+    s_traj = [0, cumsum(ds)];
+    traj_length = s_traj(end);
+    
+    % 3. Criar vetor de distâncias alvo a partir da posição inicial
+    s0 = s_traj(idx_ref_start);
+    s_ref = v_ref * (0:Ts:(N-1)*Ts);
+    s_target = mod(s0 + s_ref, traj_length);  % wrap-around com mod
+    
+    % 4. Interpolação circular para encontrar os pontos correspondentes
+    x_ref_step = interp1(s_traj, x_traj, s_target, 'linear', 'extrap')';
+    y_ref_step = interp1(s_traj, y_traj, s_target, 'linear', 'extrap')';
+    psi_ref = interp1(s_traj, psi_traj, s_target, 'linear', 'extrap')';
 
-    s_ref = v_ref * (0:Ts:(N-1)*Ts);  % Distâncias a percorrer
-    idx_ref = idx_ref_start + round(s_ref / (v_ref * Ts));  % Índices relativos à posição inicial
-    idx_ref(idx_ref > N_total) = idx_ref(idx_ref > N_total) - N_total;  % Ajusta índices acima de N_total
-
-    x_ref_step=x_traj(idx_ref)';
-    y_ref_step=y_traj(idx_ref)';
+    
 
     % ----- Definir referências para o ACADOS -----
-    yref_all = zeros(7, N);
-    for k = 1:N
-        yref_all(:,k) = [x_ref_step(k); y_ref_step(k); 0; 0; v_ref; 0; 0];
-    end
+    % yref_all = zeros(4, N);
+    % for k = 1:N
+    %     yref_all(:,k) = [x_ref_step(k); y_ref_step(k); 0 ;v_ref];
+    % end
 
     for k = 0:N-1
-        solver.set('cost_y_ref', yref_all(:, k+1), k);
+           yref_k = [x_ref_step(k+1); y_ref_step(k+1); sin(psi_ref(k+1));cos(psi_ref(k+1));0; v_ref];
+           solver.set('cost_y_ref', yref_k, k);
     end
 
-    %solver.set('yref', yref_all);
+    %solver.set('cost_y_ref', yref_all);
+
     %solver.set('yref_e', [x_ref_step(end); y_ref_step(end); 0; 0; v_ref]);
-    solver.set('cost_y_ref_e', [x_ref_step(end); y_ref_step(end); 0; 0; v_ref]);
+    %solver.set(N, 'p', [x_ref_step(end); y_ref_step(end); v_ref]);
+    solver.set('cost_y_ref_e', [x_ref_step(end); y_ref_step(end);sin(psi_ref(k+1));cos(psi_ref(k+1))]);
+
 
 
     solver.set('constr_lbx', x, 0);  % Estado inicial lower bound no estágio 0
@@ -126,6 +163,17 @@ for t_idx = 1:T_total/Ts-1
 
     u = solver.get('u', 0);
 
+    % U_opt = zeros(2, N);  % 2 inputs por etapa: delta e v
+    % X_opt = zeros(5, N);  % 2 inputs por etapa: delta e v
+    % for k = 0:N-1
+    %     U_opt(:, k+1) = solver.get('u', k);
+    %     X_opt(:, k+1) = solver.get('x', k);
+    %     set(heading_arrow,'XData', X_opt(1,k+1), 'YData', X_opt(2,k+1),'UData', cos(X_opt(3,k+1)), 'VData', sin(X_opt(3,k+1)));
+    %     drawnow;
+    %     pause(0.05)
+    % end
+    
+    u_history=[u_history; u'];
 
     % Atualiza estado com o modelo da bicicleta
     x = simulate_dynamics(x, u, Ts, L);
@@ -141,7 +189,12 @@ for t_idx = 1:T_total/Ts-1
     set(p_psi , 'XData', 0:t_idx, 'YData',history(:,3));
     set(p_angle , 'XData', 0:t_idx, 'YData', history(:,4));
     set(p_v , 'XData', 0:t_idx, 'YData',history(:,5));
+    set(p_u1, 'XData', 0:t_idx, 'YData',u_history(:,1));
+    set(p_u2, 'XData', 0:t_idx, 'YData',u_history(:,2));
     drawnow;
+
+
+
 end
 
 %fprintf("distancia percorrida",int(history(:,5),Ts))
@@ -177,6 +230,9 @@ x_sim = x + Ts * [
     0                     % dtheta/dt
     0                     % dv/dt = 0 (v é entrada direta)
     ];
+
+x_sim(3) = wrapToPi(x_sim(3));  % função do MATLAB
+
 
 end
 

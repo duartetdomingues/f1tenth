@@ -61,9 +61,9 @@
 #define MPC_MODEL_NG     0
 #define MPC_MODEL_NBXN   0
 #define MPC_MODEL_NGN    0
-#define MPC_MODEL_NY0    6
-#define MPC_MODEL_NY     6
-#define MPC_MODEL_NYN    4
+#define MPC_MODEL_NY0    5
+#define MPC_MODEL_NY     5
+#define MPC_MODEL_NYN    3
 #define MPC_MODEL_N      20
 #define MPC_MODEL_NH     0
 #define MPC_MODEL_NHN    0
