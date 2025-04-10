@@ -15,15 +15,48 @@ ament_auto_find_build_dependencies()
 #  rclcpp
 #)
 # nodes library
-include_directories(${ACADOS_INSTALL_DIR}/include)
+
+
+
+message(STATUS "Debug: Reached this point in CMakeLists.txt")
+
+include_directories(
+  ${ACADOS_INSTALL_DIR}/include
+  ${ACADOS_INSTALL_DIR}/include/acados
+  ${ACADOS_INSTALL_DIR}/include/acados_c  
+  ${ACADOS_INSTALL_DIR}/include/blasfeo/include
+  ${ACADOS_INSTALL_DIR}/include/hpipm/include
+  ${CMAKE_CURRENT_SOURCE_DIR}/mpc_solver  # Add this line
+
+)
+
+
+link_directories(${ACADOS_INSTALL_DIR}/lib)
 
 ament_auto_add_library(${PROJECT_NAME} SHARED
   src/main.cpp
 )
 
+
+# Explicitly add include directories to the target
+target_include_directories(${PROJECT_NAME} PUBLIC
+  ${ACADOS_INSTALL_DIR}/include
+  ${ACADOS_INSTALL_DIR}/include/acados
+  ${ACADOS_INSTALL_DIR}/include/acados_c
+  ${ACADOS_INSTALL_DIR}/include/blasfeo/include
+  ${ACADOS_INSTALL_DIR}/include/hpipm/include
+  ${CMAKE_CURRENT_SOURCE_DIR}/mpc_solver  # Add this line
+)
+
+
+# Link ACADOS libraries to the target
+target_link_libraries(${PROJECT_NAME}
+  acados
+  hpipm
+  blasfeo
+)
+
 # Adicionar o diretório do mpc_solver
-
-
 add_subdirectory(mpc_solver)
 
 

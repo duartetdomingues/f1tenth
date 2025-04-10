@@ -1,13 +1,14 @@
 #include "rclcpp/rclcpp.hpp"
 #include <ackermann_msgs/msg/ackermann_drive_stamped.hpp>
-#include <tf2_geometry_msgs/tf2_geometry_msgs.h>  // para tf2::getYaw()
+#include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>  // para tf2::getYaw()
 #include "nav_msgs/msg/odometry.hpp"
 #include <vector>
 
 // Include ACADOS headers
-extern "C" {
+
 #include "acados_c/ocp_nlp_interface.h"
 #include "mpc_solver/acados_solver_mpc_model.h"
+
 
 class MPCNode
 {
