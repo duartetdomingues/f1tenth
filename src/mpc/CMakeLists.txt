@@ -7,7 +7,6 @@ endif()
 
 # find dependencies
 find_package(ament_cmake_auto REQUIRED)
-#find_package(rclcpp REQUIRED)
 ament_auto_find_build_dependencies()
 
 #add_executable(mpc src/main.cpp)
@@ -18,35 +17,54 @@ ament_auto_find_build_dependencies()
 
 
 
-message(STATUS "Debug: Reached this point in CMakeLists.txt")
+
+#if(NOT DEFINED ACADOS_INSTALL_DIR)
+#  set(ACADOS_INSTALL_DIR "/home/jetson/acados")
+#  message(STATUS "Debug: Reached this point in CMakeLists.txt")
+#endif()
+
+message(STATUS "ACADOS_INSTALL_DIR = $ENV{ACADOS_INSTALL_DIR}")
+
 
 include_directories(
-  ${ACADOS_INSTALL_DIR}/include
-  ${ACADOS_INSTALL_DIR}/include/acados
-  ${ACADOS_INSTALL_DIR}/include/acados_c  
-  ${ACADOS_INSTALL_DIR}/include/blasfeo/include
-  ${ACADOS_INSTALL_DIR}/include/hpipm/include
+  $ENV{ACADOS_INSTALL_DIR}/include
+  $ENV{ACADOS_INSTALL_DIR}/include/acados
+  $ENV{ACADOS_INSTALL_DIR}/include/acados_c  
+  $ENV{ACADOS_INSTALL_DIR}/include/blasfeo/include
+  $ENV{ACADOS_INSTALL_DIR}/include/hpipm/include
   ${CMAKE_CURRENT_SOURCE_DIR}/mpc_solver  # Add this line
 
 )
 
 
-link_directories(${ACADOS_INSTALL_DIR}/lib)
+link_directories($ENV{ACADOS_INSTALL_DIR}/lib)
 
-ament_auto_add_library(${PROJECT_NAME} SHARED
+#set(BUILD_ACADOS_SOLVER_LIB ON CACHE INTERNAL "")
+#add_subdirectory(mpc_solver ${CMAKE_CURRENT_BINARY_DIR}/mpc_solver_build EXCLUDE_FROM_ALL)
+
+
+ament_auto_add_executable(mpc
   src/main.cpp
 )
 
 
-# Explicitly add include directories to the target
+#add_subdirectory(mpc_solver)
+
 target_include_directories(${PROJECT_NAME} PUBLIC
-  ${ACADOS_INSTALL_DIR}/include
-  ${ACADOS_INSTALL_DIR}/include/acados
-  ${ACADOS_INSTALL_DIR}/include/acados_c
-  ${ACADOS_INSTALL_DIR}/include/blasfeo/include
-  ${ACADOS_INSTALL_DIR}/include/hpipm/include
-  ${CMAKE_CURRENT_SOURCE_DIR}/mpc_solver  # Add this line
+  $ENV{ACADOS_INSTALL_DIR}/include
+  ${CMAKE_CURRENT_SOURCE_DIR}/mpc_solver
 )
+
+
+# Explicitly add include directories to the target
+#target_include_directories(${PROJECT_NAME} PUBLIC
+#  ${ACADOS_INSTALL_DIR}/include
+#  ${ACADOS_INSTALL_DIR}/include/acados
+#  ${ACADOS_INSTALL_DIR}/include/acados_c
+#  ${ACADOS_INSTALL_DIR}/include/blasfeo/include
+#  ${ACADOS_INSTALL_DIR}/include/hpipm/include
+#  ${CMAKE_CURRENT_SOURCE_DIR}/mpc_solver  # Add this line
+#)
 
 
 # Link ACADOS libraries to the target
@@ -57,7 +75,14 @@ target_link_libraries(${PROJECT_NAME}
 )
 
 # Adicionar o diretório do mpc_solver
+set(BUILD_ACADOS_SOLVER_LIB ON CACHE INTERNAL "")
 add_subdirectory(mpc_solver)
+
+
+# Install the executable
+install(TARGETS ${PROJECT_NAME}
+  DESTINATION lib/${PROJECT_NAME}
+)
 
 
 if(BUILD_TESTING)

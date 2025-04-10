@@ -1,82 +1,90 @@
 #include "rclcpp/rclcpp.hpp"
 #include <ackermann_msgs/msg/ackermann_drive_stamped.hpp>
-#include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>  // para tf2::getYaw()
+#include <tf2_geometry_msgs/tf2_geometry_msgs.hpp> // para tf2::getYaw()
+#include <std_msgs/msg/float64.hpp>
 #include "nav_msgs/msg/odometry.hpp"
+#include <tf2/LinearMath/Quaternion.h> // Add this include for tf2::Quaternion
+#include <cmath>
 #include <vector>
 
 // Include ACADOS headers
 
 #include "acados_c/ocp_nlp_interface.h"
-#include "mpc_solver/acados_solver_mpc_model.h"
+#include "acados_solver_mpc_model.h"
 
-
-class MPCNode
+class MPCNode : public rclcpp::Node
 {
 public:
-    MPCNode()
+    MPCNode() : Node("mpc_node")
     {
-        // Initialize ROS node
-        ros::NodeHandle nh;
-
         // Publishers and Subscribers
-        control_pub_ = nh.advertise<ackermann_msgs::msg::AckermannDriveStamped>("ackermann_cmd", 10);
-        //state_sub_ = nh.subscribe("current_state", 10, &MPCNode::stateCallback, this);
-        odomm_sub_ = nh.subscribe("/vesc/odom", 10, &MPCNode::odomCallback, this);
-        vesc_servo_sub_ = nh.subscribe("/vesc/servo_position_command", 10, &MPCNode::VescServoCallback, this);
-        //reference_sub_ = nh.subscribe("reference_trajectory", 10, &MPCNode::referenceCallback, this);
+        control_pub_ = this->create_publisher<ackermann_msgs::msg::AckermannDriveStamped>("ackermann_cmd", 10);
+        // state_sub_ = nh.subscribe("current_state", 10, &MPCNode::stateCallback, this);
+        //  Update subscriptions to ROS 2 style
+
+        odomm_sub_ = this->create_subscription<nav_msgs::msg::Odometry>(
+            "/vesc/odom", 10, std::bind(&MPCNode::odomCallback, this, std::placeholders::_1));
+
+        vesc_servo_sub_ = this->create_subscription<std_msgs::msg::Float64>(
+            "/vesc/servo_position_command", 10, std::bind(&MPCNode::VescServoCallback, this, std::placeholders::_1));
+        // reference_sub_ = nh.subscribe("reference_trajectory", 10, &MPCNode::referenceCallback, this);
         create_reference_trajectory();
-        
 
         // Initialize ACADOS solver
-        nlp_config_ = your_model_name_acados_get_nlp_config();
-        nlp_dims_ = your_model_name_acados_get_nlp_dims();
-        nlp_in_ = your_model_name_acados_get_nlp_in();
-        nlp_out_ = your_model_name_acados_get_nlp_out();
-        nlp_solver_ = your_model_name_acados_get_nlp_solver();
-        nlp_opts_ = your_model_name_acados_get_nlp_opts();
+        nlp_config_ = mpc_model_acados_get_nlp_config(capsule);
+        nlp_dims_ = mpc_model_acados_get_nlp_dims(capsule);
+        nlp_in_ = mpc_model_acados_get_nlp_in(capsule);
+        nlp_out_ = mpc_model_acados_get_nlp_out(capsule);
+        nlp_solver_ = mpc_model_acados_get_nlp_solver(capsule);
+        nlp_opts_ = mpc_model_acados_get_nlp_opts(capsule);
 
-        if (your_model_name_acados_create() != 0)
+        if (mpc_model_acados_create(capsule) != 0)
         {
-            ROS_ERROR("Failed to create ACADOS solver.");
-            ros::shutdown();
+            RCLCPP_ERROR(this->get_logger(), "Failed to create ACADOS solver.");
+            rclcpp::shutdown();
         }
 
         // Set up a timer to solve MPC at a fixed frequency
-        double frequency = 10.0; // Frequency in Hz
-        timer_ = nh.createTimer(ros::Duration(1.0 / frequency), &MPCNode::MPC_timerCallback, this);
+        timer_ = this->create_wall_timer(
+            std::chrono::milliseconds(static_cast<int>(1000 / frequency)),
+            std::bind(&MPCNode::MPC_timerCallback, this));
     }
 
     ~MPCNode()
     {
-        your_model_name_acados_free();
+        mpc_model_acados_free(capsule);
     }
 
-    void odomCallback(const std_msgs::Odometry::ConstPtr &msg)
+    // Update the callback function signatures
+    void odomCallback(const nav_msgs::msg::Odometry::SharedPtr msg)
     {
         // Extract state from odometry message
         current_state_.x = msg->pose.pose.position.x;
         current_state_.y = msg->pose.pose.position.y;
-        current_state_.yaw = tf2::getYaw(msg->pose.pose.orientation);
+        tf2::Quaternion q(
+            msg->pose.pose.orientation.x,
+            msg->pose.pose.orientation.y,
+            msg->pose.pose.orientation.z,
+            msg->pose.pose.orientation.w);
+        current_state_.yaw = q.getAngle(); // Extract yaw from quaternion
         current_state_.v = msg->twist.twist.linear.x;
     }
 
-    void VescServoCallback(const std_msgs::Float64::ConstPtr &msg)
+    void VescServoCallback(const std_msgs::msg::Float64::SharedPtr msg)
     {
         // Extract servo position from VESC message
         current_state_.theta = msg->data;
     }
-    
 
-    void referenceCallback(const std_msgs::Float64MultiArray::ConstPtr &msg)
+    /* void referenceCallback(const std_msgs::Float64MultiArray::ConstPtr &msg)
     {
         reference_trajectory_ = msg->data;
-    }
+    } */
 
     void create_reference_trajectory()
     {
         // Create a simple reference trajectory for testing
-        reference_trajectory_.clear();
-        #define N_total 100
+#define N_total 100
         double n = (2 * M_PI) / N_total;
         double x_traj[N_total], y_traj[N_total], psi_traj[N_total];
         size_t index = 0;
@@ -103,22 +111,22 @@ public:
         }
 
         reference_trajectory_.x = std::vector<double>(x_traj, x_traj + N_total);
-        reference_trajectory_.y = std::vector<double>(y_traj, y_traj + N_total);    
+        reference_trajectory_.y = std::vector<double>(y_traj, y_traj + N_total);
         reference_trajectory_.yaw = std::vector<double>(psi_traj, psi_traj + N_total);
-        
     }
 
-    void MPC_timerCallback(const ros::TimerEvent &)
+    void MPC_timerCallback()
     {
         solveMPC();
     }
 
     void solveMPC()
     {
+        #define N 10                 // Prediction horizon
 
-        if (current_state_.empty() || reference_trajectory_.empty())
+        if (std::isnan(current_state_.x) || std::isnan(current_state_.y) || reference_trajectory_.x.empty() || reference_trajectory_.y.empty())
         {
-            ROS_WARN("State or reference trajectory is empty. Skipping MPC solve.");
+            RCLCPP_WARN(this->get_logger(), "State or reference trajectory is empty. Skipping MPC solve.");
             return;
         }
 
@@ -146,7 +154,7 @@ public:
         std::vector<double> s_ref(N, 0.0);
         for (size_t i = 0; i < N; ++i)
         {
-            s_ref[i] = i * Ts * v_ref;
+            s_ref[i] = i * 1/frequency* v_ref;
         }
         std::vector<double> s_target(N, 0.0);
         for (size_t i = 0; i < N; ++i)
@@ -158,23 +166,22 @@ public:
         std::vector<double> x_ref_step(N), y_ref_step(N), psi_ref(N);
         for (size_t i = 0; i < N; ++i)
         {
-            x_ref_step[i] = interp1(s_traj, reference_trajectory_.x, s_target[i]);
-            y_ref_step[i] = interp1(s_traj, reference_trajectory_.y, s_target[i]);
-            psi_ref[i] = interp1(s_traj, reference_trajectory_.yaw, s_target[i]);
+            x_ref_step[i] = linearInterpolation(s_traj, reference_trajectory_.x, s_target[i]);
+            y_ref_step[i] = linearInterpolation(s_traj, reference_trajectory_.y, s_target[i]);
+            psi_ref[i] = linearInterpolation(s_traj, reference_trajectory_.yaw, s_target[i]);
         }
 
-        // 5. Set up the ACADOS solver 
+        // 5. Set up the ACADOS solver
         for (size_t k = 0; k < N; ++k)
         {
             std::vector<double> yref_k = {
-            x_ref_step[k],
-            y_ref_step[k],
-            std::sin(psi_ref[k]),
-            std::cos(psi_ref[k]),
-            0.0,
-            v_ref
-            };
-            ocp_nlp_set(nlp_config_, nlp_dims_, nlp_in_, "yref", yref_k.data(), k);
+                x_ref_step[k],
+                y_ref_step[k],
+                std::sin(psi_ref[k]),
+                std::cos(psi_ref[k]),
+                0.0,
+                v_ref};
+            ocp_nlp_set(nlp_solver_, k, "yref", yref_k.data()); 
         }
 
         // Set terminal reference
@@ -182,60 +189,80 @@ public:
             x_ref_step.back(),
             y_ref_step.back(),
             std::sin(psi_ref.back()),
-            std::cos(psi_ref.back())
-        };
-        ocp_nlp_set(nlp_config_, nlp_dims_, nlp_in_, "yref_e", yref_e.data());
+            std::cos(psi_ref.back())};
+        ocp_nlp_set(nlp_solver_, N, "yref_e", yref_e.data());
 
         // Set initial state constraints
-        ocp_nlp_set(nlp_config_, nlp_dims_, nlp_in_, "lbx", current_state_vector.data(), 0);
-        ocp_nlp_set(nlp_config_, nlp_dims_, nlp_in_, "ubx", current_state_vector.data(), 0);
+        ocp_nlp_set(nlp_solver_, 0, "lbx", current_state_vector_.data());
+        ocp_nlp_set(nlp_solver_, 0, "ubx", current_state_vector_.data());
 
         // Solve the MPC problem
-        int status = acados_solve();
+        int status = mpc_model_acados_solve(capsule);
         if (status != 0)
         {
-            ROS_ERROR("ACADOS solver failed with status %d", status);
+            RCLCPP_ERROR(this->get_logger(), "ACADOS solver failed with status %d", status);
             return;
         }
 
         // Get control output
         std::array<double, 2> control_output;
-        ocp_nlp_get(nlp_config_, nlp_dims_, nlp_out_, "u", control_output.data(), 0);
-
-        std_msgs::AckermannDriveStamped control_msg;
-        control_msg.header.stamp = ros::Time::now();
+        ocp_nlp_get(nlp_solver_, "u", control_output.data()); // Retrieve control output
+        
+        ackermann_msgs::msg::AckermannDriveStamped control_msg;
+        control_msg.header.stamp = this->get_clock()->now();
         control_msg.header.frame_id = "base_link";
-        control_msg.drive.steering_angle = control_output[0]*steering_angle_to_servo_gain;
-        control_msg.drive.acceleration = control_output[1]* speed_to_duty;
+        control_msg.drive.steering_angle = control_output[0] * steering_angle_to_servo_gain;
+        control_msg.drive.acceleration = control_output[1] * speed_to_duty;
 
         // Publish control output
-        control_pub_.publish(control_msg);
+        control_pub_->publish(control_msg);
     }
 
 private:
-    ros::Publisher control_pub_;
-    ros::Subscriber state_sub_;
-    ros::Subscriber reference_sub_;
+    rclcpp::Publisher<ackermann_msgs::msg::AckermannDriveStamped>::SharedPtr control_pub_;
+    rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odomm_sub_;
+    rclcpp::Subscription<std_msgs::msg::Float64>::SharedPtr vesc_servo_sub_;
+    rclcpp::TimerBase::SharedPtr timer_;
 
-    double speed_to_erpm_gain  = 4277.5;
-    double speed_to_duty = 0.0602 //(m/s) / (duty cycle)
-    // servo value (0 to 1) =  steering_angle_to_servo_gain * steering angle (radians) + steering_angle_to_servo_offset
-    double steering_angle_to_servo_gain = -0.840; // -0.6984, -1.2135
+    mpc_model_solver_capsule *capsule = mpc_model_acados_create_capsule();
+
+
+    double speed_to_erpm_gain = 4277.5;
+    double speed_to_duty = 0.0602; //(m/s) / (duty cycle)
+                                   // servo value (0 to 1) =  steering_angle_to_servo_gain * steering angle (radians) + steering_angle_to_servo_offset
+    double steering_angle_to_servo_gain = -0.840;  // -0.6984, -1.2135
     double steering_angle_to_servo_offset = 0.475; // right turn is positive
 
-    std::array<double, 5> current_state_vector = {
+    double frequency = 10.0; // Frequency in Hz
+    double v_ref = 1;        // Reference speed in m/s
+
+    struct State
+    {
+        double x;
+        double y;
+        double yaw;
+        double v;
+        double theta;
+    } current_state_;
+
+    std::array<std::reference_wrapper<double>, 5> current_state_vector_ = {
         current_state_.x,
         current_state_.y,
         current_state_.yaw,
         current_state_.v,
-        current_state_.theta
-    };
+        current_state_.theta};
 
-    std::array<std::vector<double>, 3> reference_trajectory_vector = {
+    struct ReferenceTrajectory
+    {
+        std::vector<double> x;
+        std::vector<double> y;
+        std::vector<double> yaw;
+    } reference_trajectory_;
+
+    std::array<std::reference_wrapper<std::vector<double>>, 3> reference_trajectory_vector_ = {
         reference_trajectory_.x,
         reference_trajectory_.y,
-        reference_trajectory_.yaw
-    };
+        reference_trajectory_.yaw};
 
     // ACADOS variables
     ocp_nlp_config *nlp_config_;
@@ -244,12 +271,45 @@ private:
     ocp_nlp_out *nlp_out_;
     ocp_nlp_solver *nlp_solver_;
     void *nlp_opts_;
+
+    double linearInterpolation(const std::vector<double> &x, const std::vector<double> &y, double target_x)
+    {
+        // Ensure the input vectors are valid
+        if (x.size() != y.size() || x.empty())
+        {
+            throw std::invalid_argument("Input vectors must have the same size and cannot be empty.");
+        }
+
+        // Handle edge cases where target_x is outside the range of x
+        if (target_x <= x.front())
+        {
+            return y.front();
+        }
+        if (target_x >= x.back())
+        {
+            return y.back();
+        }
+
+        // Find the interval [x[i], x[i+1]] that contains target_x
+        for (size_t i = 0; i < x.size() - 1; ++i)
+        {
+            if (target_x >= x[i] && target_x <= x[i + 1])
+            {
+                // Perform linear interpolation
+                double t = (target_x - x[i]) / (x[i + 1] - x[i]);
+                return y[i] + t * (y[i + 1] - y[i]);
+            }
+        }
+
+        // If no interval is found (should not happen), throw an exception
+        throw std::runtime_error("Target value is out of interpolation range.");
+    }
 };
 
 int main(int argc, char **argv)
 {
-    ros::init(argc, argv, "mpc_node");
-    MPCNode mpc_node;
-    ros::spin();
+    rclcpp::init(argc, argv);
+    rclcpp::spin(std::make_shared<MPCNode>());
+    rclcpp::shutdown();
     return 0;
 }
