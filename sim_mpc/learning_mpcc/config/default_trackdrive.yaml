@@ -1,0 +1,31 @@
+controller_freq: 20.0
+num_of_threads: 4.0
+solver_timeout: 0.03
+track_length: 309.3979340975672
+simul: 0
+debug: {learning_mpcc: true}
+mpc_params:
+  objective: {z: 17.0, p: 54.0, N: 51.0, spline: 15.0, alpha_CL: 7.7, alpha_L: 0.0, q_r: 1.0, e_CL_exp: 2.0,
+    d_max: 1.0, beta_steer: 1.50, beta_throttle: 2.17, lambda: 8.95, v_max: 8.0,
+    q_v_max: 5.0, beta_epsilon: 2.0, e_CL_after_train: 10.0, q_r_max: 2.5, beta_psi: 0.0}
+  ineq_limits: {throttle_min: -1.0, throttle_max: 1.5, steering_min: -0.43, steering_max: 0.43,
+    delta_throttle_min: -0.004, delta_throttle_max: 1.0, delta_steering_min: -0.00375,
+    delta_steering_max: 1.0, e_CL_min: -1.5, e_CL_max: 1.5, delta_s_min: -1.5, delta_s_max: 5.0,
+    safety_margin: 0.25, epsilon_max: 3.0, epsilon_min: -3.0}
+model_params: {l_f: 0.88, l_r: 0.66, m: 234.0, I_z: 220.0, T_max_front: 6.0, T_max_rear: 12.0,
+  T_brake_front: 12.0, T_brake_rear: 6.0, GR: 15.21, eta_motor: 0.8, r_wheel: 0.235,
+  g: 9.81, C_roll: 0.0, rho: 1.225, lambda_blend_min: 3.0, lambda_blend_max: 3.5,
+  C_d: 1.75, C_l: 4.0, downforce_front: 0.48, downforce_rear: 0.52, h_cog: 0.272,
+  width: 1.465, length: 2.912, track_width: 1.2, diff_gain: 0.7}
+tyre_params: {D: 0.9, C: 2.0, B: 10.0, mu_x: 0.9, mu_y: 0.9}
+NN_config: {model_id: 22.0, model_name: model_22_CM_code_close_T1_20Hz, NN: 0.0,
+  NN_params: 255.0, batch_size: 32.0, epochs: 40.0, data_size: 1000.0, learning_rate: 5.0E-4,
+  gamma: 0.5, decay_lr_epochs: 0.15, decrease_epochs: 4.0, device: 0.0}
+autocross_params:
+  objective: {z: 16.0, p: 40.0, spline: 15.0, N: 26.0, alpha_CL: 6.0, alpha_L: 0.0,
+    q_r: 1.0, e_CL_exp: 2.0, d_max: 1.0, beta_steer: 0.13, beta_throttle: 0.8, lambda: 9.5,
+    v_max: 10.0, q_v_max: 5.0}
+  ineq_limits: {throttle_min: -1.0, throttle_max: 1.0, steering_min: -0.39, steering_max: 0.39,
+    delta_throttle_max: 2.5, delta_steering_max: 1.4}
+  NN: {model_id: 18.0, NN: 0.0, NN_params: 1991.0}
+

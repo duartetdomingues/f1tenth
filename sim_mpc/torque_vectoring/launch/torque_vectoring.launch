@@ -1,0 +1,11 @@
+
+<launch>
+
+    <arg name="torque_vectoring_algorithm" default="0"/> <!-- 0 = NO TV  ;  1 = DIFFERENTIAL  ;  2 = MPC TV-->
+
+    <node name="torque_vectoring" pkg="torque_vectoring" type="torque_vectoring" output="screen" respawn="true" respawn_delay="1">
+        <rosparam command="load" file="$(find torque_vectoring)/config/default.yaml"/>
+        <param name="torque_vectoring_algorithm" type="int" value="$(arg torque_vectoring_algorithm)"/><!-- 0 = NO TV  ;  1 = DIFFERENTIAL  ;  2 = MPC TV-->
+    </node>
+
+</launch>

@@ -1,0 +1,82 @@
+controller_freq: 10.0
+num_of_threads: 8
+solver_timeout: 0.095
+track_length: 97.1952 97.1952 97.195214114119010
+# 309.4585
+debug:
+  learning_mpcc: true
+
+mpc_params:
+  objective: #Objective funtions params
+    z: 12 # number of variables in the MPC formulation
+    p: 9 # number of parameters in the MPC formulation
+    N: 21 # receding time horizon
+    alpha_CL: 500.0 # center line penalization cost, in ]0, inf[
+    alpha_L: 0.0 # longitudinal projection cost, in ]0, inf[
+    q_v_y: 20.0 # lateral velocity penalization cost, in ]0, inf[
+    e_CL_exp: 2 # center line penalization exponent, even number in [2, inf[
+    d_max: 1.0 # maximum allowed throttle, in ]0, 1]
+    beta_steer: 200.0 # steering variation penalization, in [0, inf[
+    lambda: 100.0 # track progress weight, in ]0, inf[
+    v_max: 15.0 # maximum soft contrained velocity, in ]0, inf[
+    q_v_max: 5.0 # soft contrain penalization cost, in ]0, inf[
+  ineq_limits: #Equality constraint limits
+    throttle_min: -1
+    throttle_max: 1
+    steering_min: -0.244
+    steering_max: 0.244
+    delta_throttle_min: -0.2
+    delta_throttle_max: 0.2
+    delta_steering_min: -0.075
+    delta_steering_max: 0.075
+    e_CL_min: -5.0
+    e_CL_max: 5.0
+    delta_s_min: -1.5
+    delta_s_max: 5
+
+model_params: #Dynamic and Kinematic Car Model
+  l_f: 0.74 # Long. Dist. from front axle to CG
+  l_r: 0.80 # Long. Dist. From CG to rear axle
+  m: 238 # Car Mass
+  I_z: 220 # Inertial in z - CHECK PARAMETER
+  T_max_front: 6 # Max Motor Torque
+  T_max_rear: 10 # Max Motor Torque
+  T_brake_front: 9.8 # Max regenerative torque
+  T_brake_rear: 4.2 # Max regenerative torque
+  GR: 15.21 # Gear Ratio
+  eta_motor: 0.85 # Motors Efficiency 0.85
+  r_wheel: 0.235 # Effective wheel radius
+  g: 9.8 # Gravity constant     
+  C_roll: 0.0 # Rolling Resistance
+  rho: 1.225 # Air Density
+  lambda_blend_min: 3 # Velocity at which the kin and dyn bicycle model start to blend
+  lambda_blend_max: 5 # Velocity at which the kin and dyn bicycle model end to blend
+  C_d: 1.78 # Drag Coefficient multiplied by Frontal Area
+  C_l: 4.64 # Lift Coefficient multiplied by Frontal Area
+  downforce_front: 0.42 # Downforce distribution from Aero Front Wing
+  downforce_rear: 0.58 # Downforce distribution from Aero Rear Wing
+
+tyre_params: #Pacejka Tire Model
+  # D: 16.180771295934289
+  # C: 1.725
+  # B: -1.220417041617706
+  # E : 0.835
+
+  D: 600
+  C: 2.0
+  B: -10.0
+
+  # E : 0.835
+
+
+# Parametros a pedir - Tire Model, maximo mecanico do steering e derivada o mesmo para o throttle
+
+# Onde é que ele contabiliza as rotações que os motores exercem? Não é no T_max porque isso é sempre o mesmo
+
+# number of equality constraints parece estar mal
+
+# basic inequalities in the wrong space
+
+#changed delta(u) in order to not be necessary to update in the xinit
+
+#integration time seems to be wrong, and models are also weird

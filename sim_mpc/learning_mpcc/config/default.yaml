@@ -1,0 +1,46 @@
+controller_freq: 20.0
+num_of_threads: 4.0
+solver_timeout: 0.045
+track_length: 309.3979340975672
+debug: {learning_mpcc: true}
+mpc_params:
+  objective: {z: 17.0, p: 54.0, N: 51.0, spline: 15.0, alpha_CL: 5.5, alpha_L: 0.0, q_r: 0.95, e_CL_exp: 2.0,
+    d_max: 1.0, beta_steer: 1.46, beta_throttle: 0.40, beta_throttle_trackdrive: 0.40, lambda: 7.5, v_max: 8.00, v_max_trackdrive: 8.00,
+    q_v_max: 5.0, beta_epsilon: 19.0, e_CL_after_train: 10.0, q_r_max: 2.5, beta_psi: 0.0}
+  ineq_limits: {throttle_min: -1.0, throttle_max: 1.0, steering_min: -0.41, steering_max: 0.41,
+    delta_throttle_min: -0.004, delta_throttle_max: 3.0, delta_steering_min: -0.00375,
+    delta_steering_max: 1.5, e_CL_min: -1.5, e_CL_max: 1.5, delta_s_min: -1.5, delta_s_max: 5.0,
+    safety_margin: 0.25, epsilon_max: 3.0, epsilon_min: -3.0, dash: false , dash_factor: 5.2}
+model_params: {l_f: 0.847, l_r: 0.693, m: 215.0, I_z: 300.0, T_max_front: 6.0, T_max_rear: 12.0,
+  T_brake_front: 13.0, T_brake_rear: 6.5, GR: 12.65, eta_motor: 0.8, r_wheel: 0.2285,
+  g: 9.81, C_roll: 0.0, rho: 1.225, lambda_blend_min: 3.0, lambda_blend_max: 3.5,
+  C_d: 1.72, C_l: 4.58, downforce_front: 0.457, downforce_rear: 0.543, h_cog: 0.330,
+  width: 1.473, length: 3.047, track_width: 1.2, diff_gain: 1.4}
+tyre_params: {D: 0.80, D_trackdrive: 0.80, C: 2.0, B: 10.0, mu_x: 0.6, mu_x_trackdrive: 0.6, mu_y: 0.75, mu_y_trackdrive: 0.75}
+NN_config: {model_id: 43.0, model_name: model_43_simul_before_last_hope_v2, NN: 0.0,
+  NN_params: 255.0, batch_size: 32.0, epochs: 50.0, data_size: 2000.0, learning_rate: 1.0E-3,
+  gamma: 0.5, decay_lr_epochs: 0.1, decrease_epochs: 0.0, device: 0.0}
+autocross_params:
+  objective: {z: 16.0, p: 40.0, spline: 15.0, N: 26.0, alpha_CL: 6.0, alpha_L: 0.0,
+    q_r: 1.0, e_CL_exp: 2.0, d_max: 1.0, beta_steer: 0.13, beta_throttle: 0.8, lambda: 9.5,
+    v_max: 10.0, q_v_max: 5.0}
+  ineq_limits: {throttle_min: -1.0, throttle_max: 1.0, steering_min: -0.39, steering_max: 0.39,
+    delta_throttle_max: 2.5, delta_steering_max: 1.4}
+  NN: {model_id: 18.0, NN: 0.0, NN_params: 1991.0}
+pure_pursuit:
+  longitudinal: {accelerating_kp: 0.4,  accelerating_ki: 0.05,  accelerating_klim: 1,    braking_k: 0.5}
+
+  adaptive: {further_look_ahead_time: 1.77,
+    speed_angle: 25,
+    max_speed: 13.0,
+    min_speed: 6.0}
+
+  lateral: {steering_k: 1.5,
+  look_ahead_time: 0.7,
+  min_lookahead_distance: 3.0,
+  min_steering: -140000.0,
+  max_steering: 140000.0,
+  max_steering_change: 0.01,
+  steering_filter_k: 0.5}
+
+

@@ -1,0 +1,145 @@
+# bool message topic that will trigger the initialization of Learning MPCC and its other nodes
+trigger_topic: "/common/mission_tracker/path_planner_active"
+
+# MPC controller parameters
+mpc_params:
+  alpha_CL: 600.0       # center line penalization cost, in ]0, inf[
+  alpha_L: 1000.0       # longitudinal projection cost, in ]0, inf[
+  q_v_y: 20.0           # lateral velocity penalization cost, in ]0, inf[
+  e_CL_exp: 4         # center line penalization exponent, even number in [2, inf[
+  d_max: 1.0            # maximum allowed throttle, in ]0, 1]
+  beta_steer: 400.0     # steering variation penalization, in [0, inf[
+  lambda: 80.0         # track progress weight, in ]0, inf[
+  v_max: 5.0           # maximum soft contrained velocity, in ]0, inf[
+  q_v_max: 5.0          # soft contrain penalization cost, in ]0, inf[
+
+# solver parameters
+solver:
+  n_threads: 3          # number of CPU threads to use
+  solver_timeout: 0.048 # must be less than 0.05 s
+
+# parameters organization variables
+param_org:
+  n_input_vars: 4
+  n_ML_vars: 6
+  n_ML_params: 168
+  n1: 187 # 168 + 2  + 17 1st stage params
+  n2_19: 193 # 168 + 6 + 2 + 17 intermidiate stage params
+  n20: 7 # 5         last stage params
+  n_clusters: 12
+
+# model learning parameters
+model_learning:
+  lambda_high: 5.0 # 5
+  lambda_low: 50.0 # 40
+  MSE_high: 2.5e-2
+  MSE_low: 0.8e-2
+  gamma: 0.98
+  mini_batch_size: 300
+  lambda_LPF_sse: 0.005
+
+# MPC parameter learning parameters (genetic reinforcement learning)
+param_learning:
+  general_params:
+    N_population: 5
+    p_reproduction: 0.1
+    p_crossover: 0.5
+    p_mutation: 0.4
+    lambda: 0.3
+  mutation_params:
+    alpha_CL_low: -40.0
+    alpha_CL_high: 20.0
+    q_v_y_low: -10.0
+    q_v_y_high: 5.0
+    d_max_low: -0.1
+    d_max_high: 0.2
+    beta_steer_low: -80.0
+    beta_steer_high: 40.0
+  fitness_params:
+    Kt: 4.0
+    cone_pen: 0.5
+  param_limits:
+    alpha_CL_min: 100.0
+    q_v_y_min: 2.0
+    e_CL_exp_min: 2
+    e_CL_exp_max: 10
+    d_max_min: 0.1
+    d_max_max: 1.0
+    beta_steer_min: 100.0
+
+# car_params:
+#   l_f: 1.078   
+#   l_r: 0.462  
+#   m: 235
+#   I_z: 160       
+#   T_max: 6 
+#   T_break: 6    
+#   GR: 15.74    
+#   eta_motor: 1 
+#   r_wheel: 0.23
+#   g: 9.8       
+#   C_roll: 0.092
+#   rho: 1.18    
+#   C_d: 1.2     
+#   A_F: 1.18
+#   D: 750 
+#   C: 1.38
+#   B: 10   
+
+car_params:
+  l_f: 0.810  
+  l_r: 0.730   
+  m: 230
+  I_z: 220  
+  T_max: 6
+  T_break: 6    
+  GR: 15.21   
+  eta_motor: 0.85 
+  r_wheel: 0.23
+  g: 9.8       
+  C_roll: 0.092
+  rho: 1.225    
+  C_d: 1.2     
+  A_F: 1.18
+  D: 750
+  C: 1.38
+  B: 10   
+
+# track parameters
+# map: # FSG
+#  track_length: 309.2073
+#  checkpts: [0.0, 66.7027, 116.2736, 173.8228, 235.0211]
+
+# map: # FSI
+#   track_length: 217.9173
+#   checkpts: [0.0, 54.45, 114.95, 164.32]
+
+# map: # thin
+#   track_length: 186.4057
+#   checkpts: [0.0, 41.07, 85.12, 135.66]
+
+# map: #palmela
+#   track_length: 179.7976
+#   checkpts: [0.0, 45.1823681867514, 87.5003890120650, 136.471661126330]
+
+# map: # Ota_22_may
+#  track_length: 199.3047
+#  checkpts: [0.0, 51.3414, 98.5193, 146.6698]
+
+map: # skidpad
+  track_length: 304.3193
+  checkpts: [0.0, 73.8864, 148.6524, 215.6824]
+
+# debug info: true -> show debug info, false -> don't
+debug:
+  learning_mpcc: true
+  model_learning: false
+  mpc_param_learning: true
+
+data_file:
+  write_data_file: true
+  name: "lmpcc_data.txt"
+  write_model_learning_file: true
+  name_model_learning_file: "model_learning_data.txt"
+  write_param_learning_file: true
+  name_param_learning_file: "param_learning_data.txt"

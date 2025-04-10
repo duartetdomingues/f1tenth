@@ -1,0 +1,186 @@
+
+%speed_to_erpm_gain  = 4277.5
+%speed_to_duty (m/s) = 0.0602
+close all
+
+Ts = 1/10;      % Tempo de amostragem (20 Hz)
+T_total = 20; % Tempo de sim
+% Definir o horizonte de predição
+N = 5; % Horizonte do MPC
+
+L = 0.35; % Distância entre eixos
+servo_gain=-0.840; % Ganho do servo (rad/unidade)
+
+
+servo_max=0.4; % Ângulo máximo do servo
+v_max = 1;        % Velocidade máxima (m/s)
+
+delta_max = abs(servo_max/servo_gain); % Ângulo máximo de direção (radianos)
+
+
+
+
+N_total = 100;  % Numeros de pontos traj
+n = (2*pi)/N_total;
+x_traj = 2.5 * cos(0:n:2*pi);
+y_traj = 1.75 * sin(0:n:2*pi);
+%plot(x_traj, y_traj, 'r.', 'MarkerSize', 10);
+%axis equal
+
+v_ref = 1.0;  % m/s
+
+% h_ref = plot(x_ref(1), y_ref(1), 'r.', 'MarkerSize', 10);
+% xlim([-3, 3]);
+% ylim([-3, 3]);
+% for i = 1:length(x_ref)-N
+%     set(h_ref, 'XData', x_ref(i:i+N), 'YData', y_ref(i:i+N));
+%     drawnow;
+%     pause(1/Ts); % Adjust the pause duration as needed
+% end
+
+
+% Estados iniciais
+x0 = [-2.5; 0; 0 ;0; 0]; % [x, y, psi ,theta, v]
+u0 = zeros(N, 2);  % Controles iniciais [delta, velocidade]
+
+
+% Parâmetros do MPC
+Q = diag([20, 20, 1, 10, 1]);  % Ponderação dos estados
+R = diag([0.1, 0.1]);       % Ponderação dos controles
+
+% Restrições
+%lb = [-delta_max * ones(N,1), zeros(N,1)];
+lb = [-delta_max * ones(N,1), -v_max * ones(N,1)];
+ub = [delta_max * ones(N,1), v_max * ones(N,1)];
+
+% Estado inicial
+x = [2.5; 0; pi/2;0; 0]; % [x, y, psi, theta, v]
+history = x';
+
+% Gráfico Trajetoria
+figure; hold on; grid on;
+plot(x_traj, y_traj, 'r--', 'LineWidth', 1.5);
+%traj = plot(x(1), x(2), 'bo-', 'LineWidth', 2);
+% Seta de orientação
+heading_arrow = quiver(x(1), x(2), cos(x(3)), sin(x(3)), 0.5, 'b', 'LineWidth', 2, 'MaxHeadSize', 2)
+traj_ref = plot(x_traj(1:N), y_traj(1:N), 'y--', 'LineWidth', 1.5);
+xlabel('x [m]'); ylabel('y [m]');
+title('MPC rodando em loop');
+legend('Trajetória de referência', 'Trajetória do veículo');
+xlim([-3,3])
+axis equal
+
+figure;
+subplot(3,1,1);
+p_angle=plot(0, 0, 'b-', 'LineWidth', 2);
+xlabel('Tempo [s]');
+ylabel('Ângulo de direção [rad]');
+title('Ângulo de direção do veículo');
+subplot(3,1,2);
+p_v=plot(0, 0, 'b-', 'LineWidth', 2);
+xlabel('Tempo [s]');
+ylabel('Velocidade [m/s]');
+title('Velocidade do veículo');
+subplot(3,1,3);
+p_psi=plot(0, 0, 'b-', 'LineWidth', 2);
+xlabel('Tempo [s]');
+ylabel('PSI [rad]');
+title('Orientaçao do veículo')
+
+% Loop principal do MPC
+for t_idx = 1:T_total/Ts-1
+    % Trajetória de referência para o horizonte atual
+
+    distances = sqrt((x_traj - x(1)).^2 + (y_traj - x(2)).^2);
+    [~, idx_ref_start] = min(distances);  % Índice do ponto mais próximo
+
+    s_ref = v_ref * (0:Ts:(N-1)*Ts);  % Distâncias a percorrer
+    idx_ref = idx_ref_start + round(s_ref / (v_ref * Ts));  % Índices relativos à posição inicial
+    idx_ref(idx_ref > N_total) = idx_ref(idx_ref > N_total) - N_total;  % Ajusta índices acima de N_total
+
+    x_ref_step=x_traj(idx_ref)';
+    y_ref_step=y_traj(idx_ref)';
+
+    % Chute inicial do controle
+    u0 = zeros(N,2); % [delta, v]
+
+    % Função de custo
+    cost_fun = @(U) mpc_cost(U, x, x_ref_step, y_ref_step, v_ref, Ts, L, N, Q, R);
+
+    % Otimização
+    options = optimoptions('fmincon', 'Display', 'none', 'Algorithm', 'sqp');
+    U_opt = fmincon(cost_fun, u0, [], [], [], [], lb, ub, [], options);
+
+    % Aplica o primeiro controle
+    u = U_opt(1,:)'; % [delta; v]
+
+    % Atualiza estado com o modelo da bicicleta
+    x = simulate_dynamics(x, u, Ts, L);
+
+    history = [history; x'];
+
+    % Atualiza gráfico
+    %set(traj, 'XData', history(:,1), 'YData', history(:,2));
+    set(heading_arrow,'XData', x(1), 'YData', x(2),'UData', cos(x(3)), 'VData', sin(x(3)));
+    drawnow;
+    set(traj_ref, 'XData', x_ref_step , 'YData', y_ref_step);
+    drawnow;
+    set(p_psi , 'XData', 0:t_idx, 'YData',history(:,3));
+    set(p_angle , 'XData', 0:t_idx, 'YData', history(:,4));
+    set(p_v , 'XData', 0:t_idx, 'YData',history(:,5));
+    drawnow;
+end
+
+%fprintf("distancia percorrida",int(history(:,5),Ts))
+
+%Plotar angulo de direção
+% figure;
+% subplot(2,1,1);
+% plot(1:T_total, history(:,3), 'b-', 'LineWidth', 2);
+% xlabel('Tempo [s]');
+% ylabel('Ângulo de direção [rad]');
+% title('Ângulo de direção do veículo');
+% subplot(2,1,2);
+% plot(1:T_total, history(:,4), 'b-', 'LineWidth', 2);
+% xlabel('Tempo [s]');
+% ylabel('Velocidade [m/s]');
+% title('Velocidade do veículo');
+
+
+% ---- Simulação da Dinâmica ----
+function x_sim = simulate_dynamics(x, u, Ts, L)
+
+delta = u(1);
+v = u(2);
+psi = x(3); % Orientação atual
+
+x(4)=delta;
+x(5)=v;
+
+x_sim = x + Ts * [
+    v * cos(psi);        % dx/dt
+    v * sin(psi);        % dy/dt
+    (v / L) * tan(delta); % dyaw/dt
+    0                     % dtheta/dt
+    0                     % dv/dt = 0 (v é entrada direta)
+    ];
+
+end
+
+
+% ---- Função de Custo ----
+function J = mpc_cost(U, x0, x_ref, y_ref, v_ref, Ts, L, N, Q, R)
+x = x0;
+J = 0;
+
+for k = 1:N
+    u = U(k, :)'; % Controle atual
+
+    x = simulate_dynamics(x, u, Ts, L);
+    
+
+    % Erro em relação à referência
+    e = [x(1)-x_ref(k); x(2)-y_ref(k); 0; 0 ;0];
+    J = J + e' * Q * e + u' * R * u;
+end
+end

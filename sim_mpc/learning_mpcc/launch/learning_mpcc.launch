@@ -1,0 +1,33 @@
+<launch>
+    
+    <arg name="mission_config" default="trackdrive"/>
+    <arg name="load_map" default="true"/>
+
+    <group if="$(eval arg('mission_config') == 'trackdrive')">
+        <group if="$(eval arg('load_map') == false)">
+            <node name="learning_mpcc" pkg="learning_mpcc" type="learning_mpcc" output="screen" respawn="true" respawn_delay="1">
+                <rosparam command="load" file="$(find learning_mpcc)/config/default.yaml"/>
+                <param name="lmpc_path" value="$(find learning_mpcc)"/>
+                <param name="mission_config" value="$(arg mission_config)"/>
+                <param name="load_map" value="$(arg load_map)"/>
+            </node>
+        </group>
+        <group if="$(eval arg('load_map') == true)">
+            <node name="learning_mpcc" pkg="learning_mpcc" type="learning_mpcc" output="screen" respawn="true" respawn_delay="1">
+                <rosparam command="load" file="$(find learning_mpcc)/config/default.yaml"/>
+                <param name="lmpc_path" value="$(find learning_mpcc)"/>
+                <param name="mission_config" value="$(arg mission_config)"/>
+                <param name="load_map" value="$(arg load_map)"/>
+            </node>
+        </group>
+    </group>
+    <group if="$(eval arg('mission_config') != 'trackdrive')"> 
+        <node name="learning_mpcc" pkg="learning_mpcc" type="learning_mpcc" output="screen" respawn="true" respawn_delay="1">
+            <rosparam command="load" file="$(find learning_mpcc)/config/default.yaml"/>
+            <param name="lmpc_path" value="$(find learning_mpcc)"/>
+            <param name="mission_config" value="$(arg mission_config)"/>
+            <param name="load_map" value="$(arg load_map)"/>
+        </node>
+    </group>
+
+</launch>

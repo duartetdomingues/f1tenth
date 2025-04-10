@@ -1,0 +1,572 @@
+function formulate_TV()
+    global config_data;
+    global STORE_MEX_DATA
+
+    %% FORMULATION
+
+    model = {};
+
+    N = config_data.mpc_params.objective.N;
+    model.N = N;
+    global integrator_stepsize
+    integrator_stepsize = 1/config_data.TV_freq;
+
+    % Torque limits
+    Torque_max_front = config_data.model_params.T_max_front;
+    Torque_max_rear = config_data.model_params.T_max_rear;
+    Torque_brake_front = config_data.model_params.T_brake_front;
+    Torque_brake_rear = config_data.model_params.T_brake_rear;
+
+    n_state = 2; % r, Beta
+    additional_variables = 4; % epsilon_1, epsilon_2, Mz_prev, delta
+    n_input = 4; % T_L1, T_R1, T_L2, T_R2
+
+    model.npar = config_data.mpc_params.objective.p;
+
+% Parameters
+%p = [1 -T_max_f % Maximum Acceleration Torque Front Axis
+%     2 -T_max_r % Maximum Acceleration Torque Rear Axis
+%     3 -T_brake_f % Maximum Braking Torque Front Axis
+%     4 -T_brake_r % Maximum Braking Torque Rear Axis
+%     5 -throttle % Requested Throttle
+%     6 -K_us_ref % Desired Understeer Gradient
+%     7 - a  % Front Axle to CoG
+%     8 - b  % Rear Axle to CoG
+%     9 - I_z % Yaw Inertia
+%     10 - Fy_fr_lin % Front Right Tire Linearized Lateral Force
+%     11 - Fy_fl_lin % Front Left Tire Linearized Lateral Force
+%     12 - Fy_rr_lin % Rear Right Tire Linearized Lateral Force
+%     13 - Fy_rl_lin % Rear Left Tire Linearized Lateral Force
+%     14 - alpha_lin_f %Linearized Alpha Front
+%     15 - alpha_lin_r %Linearized Alpha Rear
+%     16 - C_alpha_lin_f % Linearized Cornering Stiffness Front Tire
+%     17 - C_alpha_lin_r % Linearized Cornering Stiffness Rear Tire
+%     18 - r_wheel % Wheel Radius
+%     19 - d % Track Width
+%     20 - L % Wheelbase
+%     21 - m % Mass
+%     22 - v_x % Longitudinal Velocity
+%     23 - w_u % Input Weight
+%     24 - w_m % Moment Weight
+%     25 - w_r % Yaw rate Weight
+%     26 - w_epsilon_1 % Epsilon_1 Weight
+%     27 - w_epsilon_2 % Epsilon_2 Weight
+%     28 - GR % Gear Ratio
+%     29 - eta % Motor Efficiency
+%     30 - angular_steering_velocity % Angular Steering Velocity
+%     31 - mu_x % Longitudinal Friction
+%     32 - mu_y % Lateral Friction
+%     33 - alpha_max % Maximum lateral slip angle
+%     34 - Fz_fr_lin % Front Right Tire Linearized Normal Force
+%     35 - Fz_fl_lin % Front Left Tire Linearized Normal Force
+%     36 - Fz_rr_lin % Rear Right Tire Linearized Normal Force
+%     37 - Fz_rl_lin % Rear Left Tire Linearized Normal Force
+%     38 - g % Gravity Accel
+%     39 - N]
+
+    %% First timestep
+
+    % z =  [1 - T_L1
+    %       2 - T_R1
+    %       3 - T_L2
+    %       4 - T_R2
+    %       5 - epsilon_1
+    %       6 - epsilon_2
+    %       7 - Mz_prev
+    %       8 - delta
+    %       9 - r
+    %       10 - Beta]
+
+    % Problem dimensions
+    model.nvar(1) = n_state + n_input + additional_variables;
+    model.xinitidx = 7:10;
+    model.neq(1) = 4;
+    model.nh(1) = 10;  % Max Torques 4; Friction Ellipse 4; Slack variables 2
+%     model.nh(1) = 6;  % Max Torques 4; Friction Ellipse 4; Slack variables 2
+
+    % Objective function
+    model.objective{1} = @objectiveInitial;
+
+    % State Transition
+    model.eq{1} = @(z,p) [get_yaw_moment([z(1) z(2) z(3) z(4)],p); steering_dynamics(z(8),p); ForwardEuler([z(9); z(10)], [z(1); z(2); z(3); z(4); z(8)], @lateral_dynamics_model, integrator_stepsize, p)];
+    model.E{1} = [zeros(model.neq(1),model.nvar(1)-model.neq(1)) eye(model.neq(1))];
+
+    % Inequalities
+    model.ineq{1} = @ineqI;
+    model.hl{1} = [-Torque_brake_front -Torque_brake_front -Torque_brake_rear -Torque_brake_rear ... % Maximum mechanical Torque
+                   -1 -1 -1 -1 ...                                                           % Maximum Torque due to longitudinal slip
+                   0 0];                                                                             % Epsilons
+    model.hu{1} = [Torque_max_front Torque_max_front Torque_max_rear Torque_max_rear ... % Maximum mechanical Torque
+                   1 1 1 1 ...                                                           % Maximum Torque due to longitudinal slip
+                   +inf +inf];                                                           % Epsilons 
+%     model.hl{1} = [-Torque_brake_front -Torque_brake_front -Torque_brake_rear -Torque_brake_rear ... % Maximum mechanical Torque
+%                     0 0
+%     ];                                                                             % Epsilons
+%     model.hu{1} = [Torque_max_front Torque_max_front Torque_max_rear Torque_max_rear ... % Maximum mechanical Torque
+%                     +inf +inf
+%     ];                                                           % Epsilons 
+
+    %% In between timesteps
+    % z =  [1 - T_L1
+    %       2 - T_R1
+    %       3 - T_L2
+    %       4 - T_R2
+    %       5 - epsilon_1
+    %       6 - epsilon_2
+    %       7 - Mz_prev
+    %       8 - delta
+    %       9 - r
+    %       10 - Beta]
+
+    for i=2:N-2
+        % Problem dimensions
+        model.nvar(i) = n_state + n_input + additional_variables;
+        model.neq(i) = 4;
+        model.nh(i) = 12; % Max Torques 4; Friction Ellipse 4; Yaw Rate 1; Rear Lateral Slip 1; Slack variables 2
+%         model.nh(i) = 6; % Max Torques 4; Friction Ellipse 4; Yaw Rate 1; Rear Lateral Slip 1; Slack variables 2
+
+        % Objective function
+        model.objective{i} = @objectiveMiddle;
+    
+        % State Transition
+        model.eq{i} = @(z,p) [get_yaw_moment([z(1) z(2) z(3) z(4)],p); steering_dynamics(z(8),p); ForwardEuler([z(9); z(10)], [z(1); z(2); z(3); z(4); z(8)], @lateral_dynamics_model, integrator_stepsize, p)];
+        model.E{i} = [zeros(model.neq(i),model.nvar(i)-model.neq(i)) eye(model.neq(i))];
+
+        % Inequalities
+        model.ineq{i} = @ineqM;
+        model.hl{i} = [-Torque_brake_front -Torque_brake_front -Torque_brake_rear -Torque_brake_rear ... % Maximum mechanical Torque
+                       -1 -1 -1 -1 ...                                                            % Maximum Torque due to longitudinal slip
+                       0 ...                                                                          % Yaw Rate
+                       0 ...                                                                     % Lateral Slip Angles
+                       0 0];                                                                             % Epsilons
+
+        model.hu{i} = [Torque_max_front Torque_max_front Torque_max_rear Torque_max_rear ... % Maximum mechanical Torque
+                       1 1 1 1 ...                                                           % Maximum Torque due to longitudinal slip
+                       1 ...                                                                 % Yaw Rate
+                       1 ...                                                               % Lateral Slip Angles
+                       +inf +inf];                                                           % Epsilons
+   
+%         model.hl{1} = [-Torque_brake_front -Torque_brake_front -Torque_brake_rear -Torque_brake_rear ... % Maximum mechanical Torque
+%                         0 0
+%         ];                                                                             % Epsilons
+%         model.hu{1} = [Torque_max_front Torque_max_front Torque_max_rear Torque_max_rear ... % Maximum mechanical Torque
+%                         +inf +inf
+%         ];                                                           % Epsilons 
+    end
+    
+    %% Penultimate (needed for state transition but basically the same as middle)
+
+    % Problem dimensions
+    model.nvar(N-1) = n_state + n_input + additional_variables;
+    model.neq(N-1) = 3;
+    model.nh(N-1) = 12; % Max Torques 4; Friction Ellipse 4; Yaw Rate 1; Rear Lateral Slip 1; Slack variables 2
+%     model.nh(N-1) = 6; % Max Torques 4; Friction Ellipse 4; Yaw Rate 1; Rear Lateral Slip 1; Slack variables 2
+
+
+    % Objective function
+    model.objective{N-1} = @objectiveMiddle;
+   
+    % State Transition
+    model.eq{N-1} = @(z,p) [steering_dynamics(z(8),p); ForwardEuler([z(9); z(10)], [z(1); z(2); z(3); z(4); z(8)], @lateral_dynamics_model, integrator_stepsize, p)];
+    model.E{N-1} = [zeros(model.neq(N-1),2) eye(model.neq(N-1))];
+      
+    % Inequalities
+    model.ineq{N-1} = @ineqM;
+    model.hl{N-1} = [-Torque_brake_front -Torque_brake_front -Torque_brake_rear -Torque_brake_rear ... % Maximum mechanical Torque
+                     -1 -1 -1 -1 ...                                                            % Maximum Torque due to longitudinal slip
+                     0 ...                                                                          % Yaw Rate
+                     0 ...                                                                     % Lateral Slip Angles
+                     0 0];                                                                             % Epsilons                                                                        % Epsilons
+
+    model.hu{N-1} = [Torque_max_front Torque_max_front Torque_max_rear Torque_max_rear ... % Maximum mechanical Torque
+                     1 1 1 1 ...                                                           % Maximum Torque due to longitudinal slip
+                     1 ...                                                                 % Yaw Rate
+                     1 ...                                                                 % Lateral Slip Angles
+                     +inf +inf];                                                           % Epsilons
+
+%     model.hl{1} = [-Torque_brake_front -Torque_brake_front -Torque_brake_rear -Torque_brake_rear ... % Maximum mechanical Torque
+%                     0 0
+%     ];                                                                             % Epsilons
+%     model.hu{1} = [Torque_max_front Torque_max_front Torque_max_rear Torque_max_rear ... % Maximum mechanical Torque
+%                    +inf +inf
+%     ];                                                           % Epsilons 
+    %% Last
+    % z =  [1 - epsilon_1
+    %       2 - epsilon_2   
+    %       3 - delta
+    %       4 - r
+    %       5 - Beta]
+
+    % Problem dimensions
+    model.nvar(N) = n_state + 3; % states + epsilon_1 + epsilon_2 + delta
+    model.nh(N) = 4;
+%     model.nh(N) = 2;
+
+    % Objective function
+    model.objective{N} = @objectiveLast;
+
+    % Inequalities
+    model.ineq{N} = @ineqN;
+    model.hl{N} = [0 ...         % Yaw Rate
+                   0 ...    % Alpha Slip Angles
+                   0 0];            % Epsilons
+    model.hu{N} = [1 ...            % Yaw Rate
+                   1 ...          % Alpha Slip Angles
+                   +inf +inf];      % Epsilons
+% 
+%     model.hl{N} = [0 0];            % Epsilons
+%     model.hu{N} = [+inf +inf];      % Epsilons
+    %% Generate Solver 
+    % Make the output a continuous vector
+    outputs(1) = newOutput('zI',1,1:model.nvar(1));
+    outputs(2) = newOutput('z',2:(model.N-1),1:model.nvar(2));
+    outputs(3) = newOutput('zN',model.N,1:model.nvar(N));
+
+    codeoptions = getOptions('solverTV');
+    codeoptions.platform = 'Gnu-x86_64'; % to specify the platform
+    % codeoptions.mip.timeout = integrator_stepsize;
+    % codeoptions.printlevel = 1;         % printlevel should always be set to 0 when recording performance timings or when deploying the code on an autonomous embedded system.
+    % codeoptions.cleanup = 0;            % to keep necessary files for target compile
+    codeoptions.maxit = 1000000;            % maximum number of iterations (to control node processing time)
+    codeoptions.optlevel = 3;           % compiler optimizationLearn-to-Race level: set to 3 when generating code for deployment or timing measurements.
+    % codeoptions.threadSafeStorage = true;
+    % codeoptions.timing = 1;             % measure computation time. Timing should be turned off when deploying the code on an autonomous embedded system.
+    % codeoptions.embedded_timing = 1;    % by default when choosing to generate solvers for target platforms, timing is disabled.
+    % codeoptions.solver_timeout = 0;     % setting the option to 1 will enable the timeout and provide the floating point variable solver_timeout as a runtime parameter.
+    codeoptions.BuildSimulinkBlock = 0; % set to 0 to skip the build of simulink s-function
+    % codeoptions.nlp.compact_code = 1;   % set to 1 to enable the FORCESPRO server to generate smaller code, which results in shorter compilation time and slightly better solve time in some cases.
+    codeoptions.parallel = 1;           % set to 1 to enable multicore computation or to >1 to set maximum number of threads
+    codeoptions.nlp.ad_tool = 'casadi-3.5.5'; % 'symbolic-math-tbx'; %'casadi351';
+    codeoptions.solver_timeout = 1; % Setting the option to 1 will enable the timeout and provide the floating point variable solver_timeout as a runtime parameter. Setting the option to 2 will additionally provide the floating point variable timeout_estimate_coeff as a runtime parameter.
+    codeoptions.printlevel = 0; % on some platforms printing is not supported
+    codeoptions.cleanup = 0; % to keep necessary files for targe compiling
+    codeoptions.overwrite = 1;
+    % codeoptions.warmstart = 1;
+    % codeoptions.init = 2;
+    codeoptions.sse = 1; % SIMD usage
+    % codeoptions.avx = 1; % AVX
+    % codeoptions.nlp.integrator = integrator_stepsize;
+    % nodes = 4;
+    % codeoptions.nlp.integrator.nodes = nodes;
+    % codeoptions.nlp.integrator.type = 'ERK4';
+    % codeoptions.nlp.integrator.attempt_subsystem_exploitation = 1; % Enable subsystem exploitation for performance   
+    % codeoptions.optimize_choleskydivision = 1;
+    % codeoptions.optimize_registers = 1;
+    % codeoptions.optimize_uselocalsall = 1;
+    % codeoptions.optimize_uselocalsheavy = 1; % overriden if uselocalsall is enabled
+    % codeoptions.optimize_uselocalssimple = 1; % overriden if uselocalsheavy is enabled
+    % codeoptions.optimize_operationsrearrange = 1;
+    % codeoptions.optimize_loopunrolling = 1;
+    % codeoptions.optimize_enableoffset = 1;
+    % codeoptions.nlp.compact_code = 1; % The server failed to generate Code and returned the following message: Problem compiling the solver when using the web compiler. Please contact support@embotech.com.
+    % codeoptions.floattype = 'float'; deu erro O.o
+    % codeoptions.noVariableElimination = 1;
+    codeoptions.nlp.checkFunctions = 1;
+%     codeoptions.solvemethod = 'QP';
+    codeoptions.noVariableElimination = 1; 
+    if STORE_MEX_DATA
+        codeoptions.MEXinterface.dynamics = 1;
+        codeoptions.MEXinterface.inequalities = 1;
+        codeoptions.MEXinterface.objective = 1;
+    end
+
+    % Generate solver
+    FORCES_NLP(model, codeoptions, outputs);
+
+
+end
+
+%% AUXILIARY FUNCTIONS
+
+%  Objetive functions
+% Initial
+function f = objectiveInitial(z,p)
+    w_u = p(23);
+    w_m = p(24);
+    w_epsilon_1 = p(26);
+    w_epsilon_2 = p(27);
+    N = p(39);
+    T_front_ref = p(40);
+    T_rear_ref = p(41);
+
+    u = [z(1); z(2); z(3); z(4)];
+    u_ref = [T_front_ref; T_front_ref; T_rear_ref; T_rear_ref];
+    Mz = get_yaw_moment(u,p);
+    Mz_prev = z(7);
+    epsilon_1 = z(5);
+    epsilon_2 = z(6);
+
+    f = w_u*()^2 + w_m*(Mz-Mz_prev)^2 + N*w_epsilon_1*epsilon_1^2 + N*w_epsilon_2*epsilon_2^2;
+%     f = w_u*norm(u-u_ref)^2 + w_m*(Mz-Mz_prev)^2 + N*w_epsilon_1*epsilon_1^2 + N*w_epsilon_2*epsilon_2^2;
+end
+% Middle
+function f = objectiveMiddle(z,p)
+    w_u = p(23);
+    w_m = p(24);
+    w_r = p(25);
+    w_epsilon_1 = p(26);
+    w_epsilon_2 = p(27);
+    v_x = p(22);
+    L = p(20);
+    K_us_ref = p(6);
+    N = p(39);
+    T_front_ref = p(40);
+    T_rear_ref = p(41);
+
+    u = [z(1); z(2); z(3); z(4)];
+    u_ref = [T_front_ref; T_front_ref; T_rear_ref; T_rear_ref];
+    Mz = get_yaw_moment(u,p);
+    Mz_prev = z(7);
+    epsilon_1 = z(5);
+    epsilon_2 = z(6);
+    r = z(9);
+    delta = z(8);
+
+    r_ref = v_x/(L+K_us_ref*v_x^2)*delta;
+
+    f = w_r*(r-r_ref)^2 + w_u*norm(u-u_ref)^2 + w_m*(Mz-Mz_prev)^2 + N*w_epsilon_1*epsilon_1^2 + N*w_epsilon_2*epsilon_2^2;
+end
+% End
+function f = objectiveLast(z,p)
+    % z =  [1 - epsilon_1
+    %       2 - epsilon_2   
+    %       3 - delta
+    %       4 - r
+    %       5 - Beta]
+
+    w_r = p(25);
+    w_epsilon_1 = p(26);
+    w_epsilon_2 = p(27);
+    N = p(39);
+
+    v_x = p(22);
+    L = p(20);
+    K_us_ref = p(6);
+
+    delta = z(3);
+    r = z(4);
+    epsilon_1 = z(1);
+    epsilon_2 = z(2);
+
+    r_ref = v_x/(L+K_us_ref*v_x^2)*delta;
+
+    f = w_r*(r-r_ref)^2 + N*w_epsilon_1*epsilon_1^2 + N*w_epsilon_2*epsilon_2^2;
+end
+
+%  Dynamics
+% Lateral Dynamics Model
+function dX = lateral_dynamics_model(x,u,p)
+    a = p(7);  % Front Axle to CoG
+    b = p(8);  % Rear Axle to CoG
+    I_z = p(9); % Yaw Inertia
+    C_alpha_lin_f = p(16); % Linearized Cornering Stiffness Front Tire
+    C_alpha_lin_r = p(17); % Linearized Cornering Stiffness Rear Tire
+    alpha_lin_f = p(14); %Linearized Alpha Front
+    alpha_lin_r = p(15); %Linearized Alpha Rear
+    r_wheel = p(18); % Wheel Radius
+    d = p(19); % Track Width
+    m = p(21); % Mass
+    Fy_f_lin = p(10) + p(11); % Front Tire Lateral Force
+    Fy_r_lin = p(12) + p(13); % Rear Tire Lateral Force
+    v_x = p(22); % Longitudinal Velocity
+    eta = p(29);
+    GR = p(28);
+
+    % x = [1 - r
+    %      2 - Beta]
+
+    % u = [1 - T_L1 
+    %      2 - T_R1
+    %      3 - T_L2
+    %      4 - T_R2
+    %      5 - delta]
+
+    A = [(b^2*C_alpha_lin_r-a^2*C_alpha_lin_f)/(I_z*v_x) ...
+        (b^2*C_alpha_lin_r-a^2*C_alpha_lin_f)/I_z; ...
+        ((b*C_alpha_lin_r-a*C_alpha_lin_f)/(m*v_x^2))-1 ...
+        -(C_alpha_lin_f+C_alpha_lin_r)/(m*v_x)];
+
+    B = [-(d*eta*GR)/(2*I_z*r_wheel) (d*eta*GR)/(2*I_z*r_wheel) -(d*eta*GR)/(2*I_z*r_wheel) (d*eta*GR)/(2*I_z*r_wheel); ...
+        0 0 0 0];
+
+    C = [a*C_alpha_lin_f/I_z; ...
+        C_alpha_lin_f/(m*v_x)];
+
+    D = [(a*(Fy_f_lin + C_alpha_lin_f*alpha_lin_f)-b*(Fy_r_lin+C_alpha_lin_r*alpha_lin_r))/I_z; ...
+        (Fy_f_lin+C_alpha_lin_f*alpha_lin_f+Fy_r_lin+C_alpha_lin_r*alpha_lin_r)/(m*v_x)];
+
+    % State derivative function
+    dX = A*x + B*u(1:4) + C*u(5) + D;
+end
+% Yaw Moment
+function Mz = get_yaw_moment(u,p)
+    d = p(19);
+    r_wheel = p(18);
+    GR = p(28);
+    eta = p(29);
+
+    T_L1 = u(1);
+    T_R1 = u(2);
+    T_L2 = u(3);
+    T_R2 = u(4);
+
+    F_L1 = eta*GR*T_L1/r_wheel;
+    F_R1 = eta*GR*T_R1/r_wheel;
+    F_L2 = eta*GR*T_L2/r_wheel;
+    F_R2 = eta*GR*T_R2/r_wheel;
+
+    Mz = d/2*(-F_L1+F_R1-F_L2+F_R2);
+end
+% Steering Dynamics
+function delta = steering_dynamics(delta_prev,p)
+    angular_steering_velocity = p(30);
+    global integrator_stepsize;
+
+    delta = delta_prev + angular_steering_velocity*integrator_stepsize;
+end
+
+%  Nonlinear Inequalities
+% Initial
+function h = ineqI(z,p)
+    r_wheel = p(18);
+    mu_x = p(31);
+    mu_y = p(32);
+    Fy_fr_lin = p(10);
+    Fy_fl_lin = p(11);
+    Fy_rr_lin = p(12);
+    Fy_rl_lin = p(13);
+    Fz_fr_lin = p(34);
+    Fz_fl_lin = p(35);
+    Fz_rr_lin = p(36);
+    Fz_rl_lin = p(37);
+    eta = p(29);
+    GR = p(28);
+
+    % Torques
+    T_L1 = z(1);
+    T_R1 = z(2);
+    T_L2 = z(3);
+    T_R2 = z(4);
+
+    % Friction ellipse
+    T_L1_max = (r_wheel/(eta*GR)) * mu_x*sqrt(Fz_fl_lin^2-(Fy_fl_lin/mu_y)^2);
+    T_R1_max = (r_wheel/(eta*GR)) * mu_x*sqrt(Fz_fr_lin^2-(Fy_fr_lin/mu_y)^2);
+    T_L2_max = (r_wheel/(eta*GR)) * mu_x*sqrt(Fz_rl_lin^2-(Fy_rl_lin/mu_y)^2);
+    T_R2_max = (r_wheel/(eta*GR)) * mu_x*sqrt(Fz_rr_lin^2-(Fy_rr_lin/mu_y)^2);
+
+    % Epsilons (soft constraints)
+    epsilon_1 = z(5);
+    epsilon_2 = z(6);
+
+    h = [
+         T_L1; T_R1; T_L2; T_R2; ...
+         T_L1/T_L1_max; T_R1/T_R1_max; T_L2/T_L2_max; T_R2/T_R2_max; ...
+         epsilon_1; epsilon_2
+         ];
+end
+% Middle
+function h = ineqM(z,p)
+    r_wheel = p(18);
+    mu_x = p(31);
+    mu_y = p(32);
+    Fy_fr_lin = p(10);
+    Fy_fl_lin = p(11);
+    Fy_rr_lin = p(12);
+    Fy_rl_lin = p(13);
+    b = p(8);
+    Fz_fr_lin = p(34);
+    Fz_fl_lin = p(35);
+    Fz_rr_lin = p(36);
+    Fz_rl_lin = p(37);
+    eta = p(29);
+    GR = p(28);
+    v_x = p(22);
+    alpha_max = p(33);
+    g = p(38);
+
+    % Torques
+    T_L1 = z(1);
+    T_R1 = z(2);
+    T_L2 = z(3);
+    T_R2 = z(4);
+    % yaw rate, slipe angles, and epsilon (soft constraints)
+    r = z(9);
+    Beta = z(10);
+
+    % Current rear lateral slip angle and max yaw rate angle
+    alpha_r = Beta - b*r/v_x;
+    r_max = mu_y*g/v_x; % PODE-SE ADICIONAR DOWNFORCE AQUI AINDA
+
+    % Friction ellipse
+    T_L1_max = (r_wheel/(eta*GR)) * mu_x*sqrt(Fz_fl_lin^2-(Fy_fl_lin/mu_y)^2);
+    T_R1_max = (r_wheel/(eta*GR)) * mu_x*sqrt(Fz_fr_lin^2-(Fy_fr_lin/mu_y)^2);
+    T_L2_max = (r_wheel/(eta*GR)) * mu_x*sqrt(Fz_rl_lin^2-(Fy_rl_lin/mu_y)^2);
+    T_R2_max = (r_wheel/(eta*GR)) * mu_x*sqrt(Fz_rr_lin^2-(Fy_rr_lin/mu_y)^2);
+
+    % Epsilons (soft constraints)
+    epsilon_1 = z(5);
+    epsilon_2 = z(6);
+
+    h = [
+        T_L1; T_R1; T_L2; T_R2; ...
+        T_L1/T_L1_max; T_R1/T_R1_max; T_L2/T_L2_max; T_R2/T_R2_max; ...
+        (abs(r)-epsilon_1) / r_max; ...
+        (abs(alpha_r)-epsilon_2) / alpha_max; ...
+        epsilon_1; epsilon_2
+        ];
+end
+% End
+function h = ineqN(z,p)
+    % z =  [1 - epsilon_1
+    %       2 - epsilon_2   
+    %       3 - delta
+    %       4 - r
+    %       5 - Beta]
+
+    b = p(8);
+    v_x = p(22);
+    g = p(38);
+    mu_y = p(32);
+    alpha_max = p(33);
+
+    % yaw rate, slipe angles, and epsilon (soft constraints)
+    r = z(4);
+    Beta = z(5);
+
+    % Current rear lateral slip angle and max yaw rate angle
+    alpha_r = Beta - b*r/v_x;
+    r_max = mu_y*g/v_x; % PODE-SE ADICIONAR DOWNFORCE AQUI AINDA (Seria tipo (Fz_estatica+Fz-downforce)/m)
+
+    % Epsilons (soft constraints)
+    epsilon_1 = z(1);
+    epsilon_2 = z(2);
+
+    h = [
+        (abs(r)-epsilon_1) / r_max;
+         (abs(alpha_r)-epsilon_2) / alpha_max; ...
+         epsilon_1; epsilon_2
+         ];
+end
+
+%% ----------- Exit Flags -----------------------------------------------
+%  2 The solver timed out and returned the solution found up to the executed iteration
+%  1 Local optimal solution found (i.e. the point satisfies the KKT optimality conditions to the requested accuracy).
+%  0 Maximum number of iterations reached. You can examine the value of optimality conditions returned inside the info struct by FORCESPRO to decide
+% whether the point returned is acceptable
+% -4 Wrong number of inequalities input to solver.
+% -5 Error occured during matrix factorization.
+% -6 NaN or INF occurred during functions evaluations.
+% -7 The solver could not proceed. Most likely cause is that the problem is infeasible.Try formulating a problem with slack variables (soft constraints) to avoid
+% this error.
+% -8 The internal QP solver could not proceed. This exitflag can only occur when using the Sequential quadratic programming algorithm. The most likely cause
+% is that an infeasible QP or a numerical unstable QP was encountered. Try increasing the hessian regularization parameter reg_hessian if this exitflag is
+% encountered (see SQP specific codeoptions).
+% -10 NaN or INF occurred during evaluation of functions and derivatives. If this occurs at iteration zero, try changing the initial point. For example, for a cost function 1/
+% √𝑥 with an initialization 𝑥0 = 0, this error would occur.
+% -11 Invalid values in problem parameters.
+% -12 The timeout provided was too small to even start a single iteration
+% -100 License error. This typically happens if you are trying to execute code that has
+% been generated with a Simulation license of FORCESPRO on another machine.
+% Regenerate the solver using your machine
+% -101 insufficient max_num_mem
+% -102 insufficient max_num_threads

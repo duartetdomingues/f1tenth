@@ -1,0 +1,18 @@
+controller_freq: 20.0
+num_of_threads: 4.0
+solver_timeout: 0.045
+track_length: 309.4584650813689
+debug: {learning_mpcc: true}
+mpc_params:
+  objective: {z: 13.0, p: 46.0, N: 41.0, alpha_CL: 15.0, alpha_L: 0.0, q_r: 0.1, e_CL_exp: 2.0,
+    d_max: 1.0, beta_steer: 850.0, beta_throttle: 2000.0, lambda: 70.0, v_max: 18.0,
+    q_v_max: 5.0, beta_epsilon: 50.0}
+  ineq_limits: {throttle_min: -1.0, throttle_max: 1.0, steering_min: -0.39, steering_max: 0.39,
+    delta_throttle_min: -0.08, delta_throttle_max: 0.08, delta_steering_min: -0.075,
+    delta_steering_max: 0.075, e_CL_min: -1.5, e_CL_max: 1.5, delta_s_min: -1.5, delta_s_max: 5.0, safety_margin: 0.25}
+model_params: {l_f: 0.66, l_r: 0.88, m: 228.0, I_z: 180.0, T_max_front: 4.0, T_max_rear: 6.0,
+  T_brake_front: 9.8, T_brake_rear: 4.2, GR: 15.21, eta_motor: 0.85, r_wheel: 0.235,
+  g: 9.8, C_roll: 0.12, rho: 1.225, lambda_blend_min: 3.0, lambda_blend_max: 4.0,
+  C_d: 1.78, C_l: 2.5, downforce_front: 0.42, downforce_rear: 0.58, h_cog: 0.272,
+  width: 1.465, length: 2.912}
+tyre_params: {D: 1.0, C: 2.0, B: 10.0, mu_x: 2.0, mu_y: 2.0}

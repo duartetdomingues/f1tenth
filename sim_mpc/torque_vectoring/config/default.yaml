@@ -1,0 +1,59 @@
+TV_freq: 100.0
+num_of_threads: 4.0
+solver_timeout: 0.1
+odom: slam
+mpc_params:
+  objective: {z: 10.0, p: 42.0, N: 15.0, w_r: 600.7, w_u: 5, w_m: 0.0, w_epsilon_1: 100.0, w_epsilon_2: 100.0, k_yaw_ref: 1.0}
+  ineq_limits: {steering_min: -0.39, steering_max: 0.39}
+model_params: {l_f: 0.847, l_r: 0.693, m: 215.0, I_z: 300.0, T_max_front: 6.0, T_max_rear: 12.0,
+  T_brake_front: 12.0, T_brake_rear: 6.0, GR: 12.65, eta_motor: 0.90, r_wheel: 0.2285,
+  g: 9.8, C_roll: 0.0, rho: 1.225, C_d: 1.67,
+  C_l: 4.10, downforce_front: 0.457, downforce_rear: 0.543, K_us_ref: 0.0, track_width: 1.20}
+tyre_params: {D: 1.0, C: 2.0, B: 10.0, mu_x: 1.3, mu_y: 1.3, alpha_max: 0.5}
+
+
+# W_r : peso em seguir a referência de yaw Rate (quanto maior vai querer seguir mais a referência).
+# W_u : peso em seguir a referência de torques relacionados com o torque (mais peso irá fazer seguir mais os troques de referência).
+# W_m : peso em que os momentos aplicados entre steps sejam mais contínuos (quanto maior mais smooth irá ser a diferença de momementos entre steps consecutivos).
+# K_us_ref : understeer gradient, quanto maior menos agressivo será a referência de yaw rate
+
+velocity_switch: 5.5 # velocity to switch from wheel speeds to slip ratio
+
+pid1: # wheels speeds
+  Kp: 0.0
+  ki: 0.0
+  kd: 0.0
+  klim: 1.0
+
+pid2: # slip ratio
+  Kp: 0.0
+  ki: 0.0 
+  kd: 0.0
+  klim: 1.0
+
+torque_p:
+  front: 6.0
+  rear: 12.0
+
+torque_n:
+  front: 12.0
+  rear: 6.0
+
+diffGain: 1.4
+max_rpm: 20000
+max_pwr: 80000
+
+# Lateral Control
+diffGain_acc: -2.1 # -2.7
+tq_lateral: 1
+tq_lateral_brake : 1
+
+# Torque Curve
+tq_curve: 1
+tq_curve_brake: 0
+startingRatio: 0.30
+upGain: 3.0
+downGain: 1.3 
+fallVel: 12.0
+startVel: 0.0
+
