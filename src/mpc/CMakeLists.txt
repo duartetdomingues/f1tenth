@@ -9,22 +9,7 @@ endif()
 find_package(ament_cmake_auto REQUIRED)
 ament_auto_find_build_dependencies()
 
-#add_executable(mpc src/main.cpp)
-#ament_target_dependencies(mpc
-#  rclcpp
-#)
-# nodes library
-
-
-
-
-#if(NOT DEFINED ACADOS_INSTALL_DIR)
-#  set(ACADOS_INSTALL_DIR "/home/jetson/acados")
-#  message(STATUS "Debug: Reached this point in CMakeLists.txt")
-#endif()
-
 message(STATUS "ACADOS_INSTALL_DIR = $ENV{ACADOS_INSTALL_DIR}")
-
 
 include_directories(
   $ENV{ACADOS_INSTALL_DIR}/include
@@ -33,7 +18,6 @@ include_directories(
   $ENV{ACADOS_INSTALL_DIR}/include/blasfeo/include
   $ENV{ACADOS_INSTALL_DIR}/include/hpipm/include
   ${CMAKE_CURRENT_SOURCE_DIR}/mpc_solver  # Add this line
-
 )
 
 
@@ -47,11 +31,9 @@ ament_auto_add_executable(mpc
   src/main.cpp
 )
 
-
 #add_subdirectory(mpc_solver)
 
 target_include_directories(${PROJECT_NAME} PUBLIC
-  $ENV{ACADOS_INSTALL_DIR}/include
   ${CMAKE_CURRENT_SOURCE_DIR}/mpc_solver
 )
 
@@ -108,4 +90,10 @@ add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
     ${CMAKE_INSTALL_PREFIX}/lib/libacados_solver_mpc_model.so
 )
 
-ament_package()
+# Configurar testes (opcional)
+if(BUILD_TESTING)
+  find_package(ament_lint_auto REQUIRED)
+  ament_lint_auto_find_test_dependencies()
+endif()
+
+ament_auto_package()
