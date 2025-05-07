@@ -35,7 +35,7 @@ def generate_launch_description():
     slam_config = os.path.join(
         get_package_share_directory('f1tenth_stack'),
         'config',
-        'slam.yaml'
+        'slam_map.yaml'
     )
 
     slam_la = DeclareLaunchArgument(

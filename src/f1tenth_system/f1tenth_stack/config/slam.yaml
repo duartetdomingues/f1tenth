@@ -1,0 +1,19 @@
+slam_toolbox:
+  ros__parameters:
+    odom_frame : "odom"
+    map_frame : "world"
+    base_frame : "laser"
+    scan_topic : "/scan"
+    scan_queue_size : 1
+    use_scan_matching : false
+    use_scan_barycenter : true
+    do_loop_closing : true
+    
+    min_laser_range : 0.06 
+    max_laser_range : 5.6
+    #use_sim_time : true
+    #tf_buffer_duration : 9999999999999999999999999999999999999999999999999999999999999999999999999999999.0
+    #scan_match_resolution: 0.1
+    #minimum_travel_distance: 0.2
+    #minimum_travel_heading: 0.2
+    #do_loop_closing: true

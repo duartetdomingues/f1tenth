@@ -81,6 +81,7 @@ def generate_launch_description():
         'config',
         'mpc.yaml'
     )
+    print("get_package_share_directory(f1tenth_stack): ", get_package_share_directory('f1tenth_stack'))
 
 
     joy_la = DeclareLaunchArgument(
@@ -228,7 +229,7 @@ def generate_launch_description():
             name='odom_to_path',
             output='screen',
             parameters=[
-                {"odom_topic": "/odom"}
+                {"odom_topic": "/odometry/filtered"}
             ]
     )
 
@@ -274,8 +275,8 @@ def generate_launch_description():
 
     #ld.add_action(zed_node)
 
-    #ld.add_action(robot_localization_node)
-    #ld.add_action(path_robot_localization_node)
+    ld.add_action(robot_localization_node)
+    ld.add_action(path_robot_localization_node)
 
 
     ld.add_action(xsens_node)

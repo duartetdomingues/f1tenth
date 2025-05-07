@@ -73,7 +73,7 @@ def generate_launch_description():
     slam_config = os.path.join(
         get_package_share_directory('f1tenth_stack'),
         'config',
-        'slam.yaml'
+        'f1tenth_online_async.yaml'
     )
 
 
@@ -216,7 +216,7 @@ def generate_launch_description():
             name='odom_to_path',
             output='screen',
             parameters=[
-                {"odom_topic": "/odom"}
+                {"odom_topic": "/odometry/filtered"}
             ]
     )
 
@@ -232,6 +232,12 @@ def generate_launch_description():
         executable='map_and_localization_slam_toolbox_node',
         name='slam_toolbox',
         parameters=[LaunchConfiguration('slam_config')]
+    )
+
+    jetson_node = Node(
+        package='ros2_jetson_stats',
+        executable='ros2_jtop',
+        name='ros2_jetson_stats'
     )
  
     
@@ -261,5 +267,7 @@ def generate_launch_description():
 
     ld.add_action(xsens_node)
     #ld.add_action(slam_node)
+
+    ld.add_action(jetson_node)
 
     return ld

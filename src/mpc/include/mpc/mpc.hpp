@@ -77,6 +77,8 @@ private:
 
     double frequency;
 
+    std::string odom_frame_id_;
+
     State current_state_;
     ReferenceTrajectory reference_trajectory_;
 

@@ -7,7 +7,8 @@ MPCNode::MPCNode() : Node("mpc_node"),
                      steering_angle_to_servo_gain(-0.840),
                      steering_angle_to_servo_offset(0.475),
                      frequency(10.0),
-                     reference_trajectory_vector_({reference_trajectory_.x, reference_trajectory_.y, reference_trajectory_.yaw, reference_trajectory_.v})
+                     reference_trajectory_vector_({reference_trajectory_.x, reference_trajectory_.y, reference_trajectory_.yaw, reference_trajectory_.v}),
+                     odom_frame_id_("odom")
 {
 
     // Declare parameters
@@ -120,8 +121,6 @@ void MPCNode::solveMPC()
 
     ocp_nlp_constraints_model_set(nlp_config_, nlp_dims_, nlp_in_, nlp_out_, 0, "lbx", current_state_vector_.data());
     ocp_nlp_constraints_model_set(nlp_config_, nlp_dims_, nlp_in_, nlp_out_, 0, "ubx", current_state_vector_.data());
-    RCLCPP_INFO(this->get_logger(), "Current state vector: %f, %f, %f, %f, %f", current_state_vector_[0], current_state_vector_[1], current_state_vector_[2], current_state_vector_[3], current_state_vector_[4]);
-    RCLCPP_INFO(this->get_logger(), "Reference state vector: %f, %f, %f, %f, %f", current_state_.x, current_state_.y, current_state_.yaw, current_state_.theta, current_state_.v);
 
     // Solve the MPC problem
     // int status = ocp_nlp_solve(nlp_solver_, nlp_in_, nlp_out_);
@@ -235,7 +234,7 @@ void MPCNode::set_trajectory_step()
     // Publish the reference path for visualization
     nav_msgs::msg::Path ref_path;
     ref_path.header.stamp = this->get_clock()->now();
-    ref_path.header.frame_id = "odom_vesc";
+    ref_path.header.frame_id = odom_frame_id_;
     for (size_t i = 0; i < N; ++i)
     {
         geometry_msgs::msg::PoseStamped pose;
@@ -276,7 +275,7 @@ bool MPCNode::load_reference_trajectory_from_csv(const std::string &filename)
     std::ifstream file(filename);
     if (!file.is_open())
     {
-        std::cerr << "Erro ao abrir o ficheiro: " << filename << std::endl;
+        RCLCPP_ERROR(this->get_logger(), "Failed to open file: %s", filename.c_str());
         return false;
     }
 
@@ -285,7 +284,7 @@ bool MPCNode::load_reference_trajectory_from_csv(const std::string &filename)
     // Check if the first line is a header
     if (line.find("x,y,yaw,v") == std::string::npos)
     {
-        std::cerr << "Formato do ficheiro inválido. Esperado: x,y,yaw,v" << std::endl;
+        RCLCPP_ERROR(this->get_logger(), "Invalid file format. Expected header: x,y,yaw,v");
         return false;
     }
 
@@ -309,14 +308,13 @@ bool MPCNode::load_reference_trajectory_from_csv(const std::string &filename)
         }
         catch (const std::exception &e)
         {
-            std::cerr << "Erro ao processar linha: " << line << "\n"
-                      << e.what() << std::endl;
+            RCLCPP_ERROR(this->get_logger(), "Error parsing line: %s. Exception: %s", line.c_str(), e.what());
             return false;
         }
     }
 
     file.close();
-    std::cout << "Trajetória carregada de: " << filename << std::endl;
+    RCLCPP_INFO(this->get_logger(), "Loaded reference trajectory %s.", filename.c_str());
     return true;
 }
 
@@ -324,7 +322,7 @@ void MPCNode::publish_reference_trajectory()
 {
     nav_msgs::msg::Path ref_path;
     ref_path.header.stamp = this->get_clock()->now();
-    ref_path.header.frame_id = "odom_vesc";
+    ref_path.header.frame_id = odom_frame_id_;
     for (size_t i = 0; i < reference_trajectory_.x.size(); ++i)
     {
         geometry_msgs::msg::PoseStamped pose;
@@ -351,6 +349,7 @@ void MPCNode::odomCallback(const nav_msgs::msg::Odometry::SharedPtr msg)
         msg->pose.pose.orientation.w);
     current_state_.yaw = tf2::getYaw(q); // Correctly extract yaw from quaternion
     current_state_.v = msg->twist.twist.linear.x;
+    odom_frame_id_ = msg->header.frame_id;
     // RCLCPP_INFO(this->get_logger(), "Current state: x=%f, y=%f, yaw=%f, v=%f", current_state_.x, current_state_.y, current_state_.yaw, current_state_.v);
 }
 
@@ -361,7 +360,6 @@ void MPCNode::VescServoCallback(const std_msgs::msg::Float64::SharedPtr msg)
     // RCLCPP_INFO(this->get_logger(), "Current servo position: %f", current_state_.theta);
 }
 
-// Implement other methods (odomCallback, VescServoCallback, load_reference_trajectory_from_csv, etc.) here...
 
 int main(int argc, char **argv)
 {
