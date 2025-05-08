@@ -76,10 +76,6 @@ sour        error('env.sh has not been sourced! Before executing this example, r
 
                 addpath(destination)
             
-                error(['Sorry, we could not set up CasADi for your system, please try manually\n.',...
-                    'Instructions can be found on https://web.casadi.org/get/\n',...
-                    'We recommend using CasADi version', CasADi_version]);
-            
         end
         if ~is_casadi_available
                 error(['Sorry, we could not set up CasADi for your system, please try manually\n.',...
