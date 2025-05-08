@@ -26,9 +26,24 @@ from launch.substitutions import Command
 from launch.substitutions import LaunchConfiguration
 from launch.actions import DeclareLaunchArgument
 from launch.actions import IncludeLaunchDescription
+from launch.actions import RegisterEventHandler
+from launch.actions import ExecuteProcess
+from launch.event_handlers import OnProcessExit
 from launch_xml.launch_description_sources import XMLLaunchDescriptionSource
 from ament_index_python.packages import get_package_share_directory
 import os
+from datetime import datetime
+from launch.actions import OpaqueFunction
+from launch.event_handlers import OnShutdown
+import subprocess
+
+def save_map_on_shutdown(context, *args, **kwargs):
+        map_filename = f"/home/jetson/f1tenth/maps/map_{datetime.now().strftime('%Y_%m_%d-%H_%M')}"
+        subprocess.run([
+            'ros2', 'run', 'nav2_map_server', 'map_saver_cli',
+            '-f', map_filename
+        ])
+        return []
 
 def generate_launch_description():
     joy_teleop_config = os.path.join(
@@ -239,8 +254,14 @@ def generate_launch_description():
         executable='ros2_jtop',
         name='ros2_jetson_stats'
     )
- 
-    
+
+    """ save_map = RegisterEventHandler(
+        OnShutdown(
+            on_shutdown=[
+                OpaqueFunction(function=save_map_on_shutdown)
+            ]
+        )
+    )  """
 
     # finalize
     #tfs
@@ -266,7 +287,9 @@ def generate_launch_description():
 
 
     ld.add_action(xsens_node)
-    #ld.add_action(slam_node)
+    
+    ld.add_action(slam_node)
+    #ld.add_action(save_map)
 
     ld.add_action(jetson_node)
 

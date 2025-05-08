@@ -4,5 +4,5 @@ mpc:
     odom_topic: "/odometry/filtered"  # EKF odometry topic
     #odom_topic: "/vesc/odom" # Vesc odometry topic
 
-    traj_file: "traj/pts/elipse_n1000_a2.5_b1.8_v1.0.csv" # Trajectory file
+    traj_file: "traj/pts/centerline_map_2025_05_08-19_59.csv" # Trajectory file
     #traj_file: "traj/pts/oito_n1000_a2.5_b1.8_v1.0.csv" # Trajectory file
