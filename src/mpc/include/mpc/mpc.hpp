@@ -47,14 +47,16 @@ public:
     } ReferenceTrajectory;
 
 private:
-    void odomCallback(const nav_msgs::msg::Odometry::SharedPtr msg);
+    void OdomCallback(const nav_msgs::msg::Odometry::SharedPtr msg);
+    void PoseCallback(const geometry_msgs::msg::PoseWithCovarianceStamped::SharedPtr msg);
+    void ProcessPose(const geometry_msgs::msg::Pose& msg);
     void VescServoCallback(const std_msgs::msg::Float64::SharedPtr msg);
     bool load_reference_trajectory_from_csv(const std::string &filename);
     void publish_reference_trajectory();
     void solveMPC();
     void set_trajectory_step();
 
-        rclcpp::Publisher<ackermann_msgs::msg::AckermannDriveStamped>::SharedPtr control_vesc_pub_;
+    rclcpp::Publisher<ackermann_msgs::msg::AckermannDriveStamped>::SharedPtr control_vesc_pub_;
     rclcpp::Publisher<std_msgs::msg::Float64>::SharedPtr solved_time_pub_;
     rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr ref_path_pub_;
     rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr reference_trajectory_pub_;
@@ -64,6 +66,7 @@ private:
     rclcpp::Publisher<std_msgs::msg::Float64MultiArray>::SharedPtr control_vector_pub_;
 
     rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odomm_sub_;
+    rclcpp::Subscription<geometry_msgs::msg::PoseWithCovarianceStamped>::SharedPtr pose_sub_;
     rclcpp::Subscription<std_msgs::msg::Float64>::SharedPtr vesc_servo_sub_;
 
     rclcpp::TimerBase::SharedPtr timer_;
@@ -77,7 +80,9 @@ private:
 
     double frequency;
 
-    std::string odom_frame_id_;
+    std::string frame_id_;
+
+    bool use_pose_topic_;
 
     State current_state_;
     ReferenceTrajectory reference_trajectory_;

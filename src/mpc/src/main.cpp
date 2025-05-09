@@ -7,17 +7,28 @@ MPCNode::MPCNode() : Node("mpc_node"),
                      steering_angle_to_servo_gain(-0.840),
                      steering_angle_to_servo_offset(0.475),
                      frequency(10.0),
-                     reference_trajectory_vector_({reference_trajectory_.x, reference_trajectory_.y, reference_trajectory_.yaw, reference_trajectory_.v}),
-                     odom_frame_id_("odom")
+                     reference_trajectory_vector_({reference_trajectory_.x, reference_trajectory_.y, reference_trajectory_.yaw, reference_trajectory_.v})
 {
 
     // Declare parameters
     this->declare_parameter<std::string>("odom_topic", "/odometry/filtered");
     this->declare_parameter<std::string>("traj_file", "/home/jetson/f1tenth/src/traj/pts/oito_n1000_a2.5_b1.8_v1.0.csv");
+    this->declare_parameter<std::string>("frame_id", "odom");
+    this->declare_parameter<std::string>("pose_topic", "/pose");
 
     // Retrieve parameters
     std::string odom_topic = this->get_parameter("odom_topic").as_string();
     std::string traj_file = this->get_parameter("traj_file").as_string();
+    frame_id_ = this->get_parameter("frame_id").as_string();
+    std::string pose_topic_ = this->get_parameter("pose_topic").as_string();
+    if (pose_topic_ == "")
+    {
+        use_pose_topic_ = false;
+    }
+    else
+    {
+        use_pose_topic_ = true;
+    }
 
     // Publishers and Subscribers
     control_vesc_pub_ = this->create_publisher<ackermann_msgs::msg::AckermannDriveStamped>("ackermann_cmd", 10);
@@ -30,7 +41,13 @@ MPCNode::MPCNode() : Node("mpc_node"),
     state_vector_pub_ = this->create_publisher<std_msgs::msg::Float64MultiArray>("mpc/state_vector", 10);
 
     odomm_sub_ = this->create_subscription<nav_msgs::msg::Odometry>(
-        odom_topic, 10, std::bind(&MPCNode::odomCallback, this, std::placeholders::_1));
+        odom_topic, 10, std::bind(&MPCNode::OdomCallback, this, std::placeholders::_1));
+
+    if (use_pose_topic_)
+    {
+        pose_sub_ = this->create_subscription<geometry_msgs::msg::PoseWithCovarianceStamped>(
+            pose_topic_, 10, std::bind(&MPCNode::PoseCallback, this, std::placeholders::_1));
+    }
     vesc_servo_sub_ = this->create_subscription<std_msgs::msg::Float64>(
         "/vesc/servo_position_command", 10, std::bind(&MPCNode::VescServoCallback, this, std::placeholders::_1));
 
@@ -234,7 +251,7 @@ void MPCNode::set_trajectory_step()
     // Publish the reference path for visualization
     nav_msgs::msg::Path ref_path;
     ref_path.header.stamp = this->get_clock()->now();
-    ref_path.header.frame_id = odom_frame_id_;
+    ref_path.header.frame_id = frame_id_;
     for (size_t i = 0; i < N; ++i)
     {
         geometry_msgs::msg::PoseStamped pose;
@@ -322,7 +339,7 @@ void MPCNode::publish_reference_trajectory()
 {
     nav_msgs::msg::Path ref_path;
     ref_path.header.stamp = this->get_clock()->now();
-    ref_path.header.frame_id = odom_frame_id_;
+    ref_path.header.frame_id = frame_id_;
     for (size_t i = 0; i < reference_trajectory_.x.size(); ++i)
     {
         geometry_msgs::msg::PoseStamped pose;
@@ -337,20 +354,34 @@ void MPCNode::publish_reference_trajectory()
     reference_trajectory_pub_->publish(ref_path);
 }
 
-void MPCNode::odomCallback(const nav_msgs::msg::Odometry::SharedPtr msg)
+void MPCNode::OdomCallback(const nav_msgs::msg::Odometry::SharedPtr msg)
 {
-    // Extract state from odometry message
-    current_state_.x = msg->pose.pose.position.x;
-    current_state_.y = msg->pose.pose.position.y;
-    tf2::Quaternion q(
-        msg->pose.pose.orientation.x,
-        msg->pose.pose.orientation.y,
-        msg->pose.pose.orientation.z,
-        msg->pose.pose.orientation.w);
-    current_state_.yaw = tf2::getYaw(q); // Correctly extract yaw from quaternion
+    
     current_state_.v = msg->twist.twist.linear.x;
-    odom_frame_id_ = msg->header.frame_id;
-    // RCLCPP_INFO(this->get_logger(), "Current state: x=%f, y=%f, yaw=%f, v=%f", current_state_.x, current_state_.y, current_state_.yaw, current_state_.v);
+
+    if (!use_pose_topic_)
+    {
+        ProcessPose(msg->pose.pose);
+    }
+       
+}
+
+void MPCNode::PoseCallback(const geometry_msgs::msg::PoseWithCovarianceStamped::SharedPtr msg)
+{
+    ProcessPose(msg->pose.pose);
+}
+
+void MPCNode::ProcessPose(const geometry_msgs::msg::Pose& msg)
+{
+    current_state_.x = msg.position.x;
+    current_state_.y = msg.position.y;
+
+    tf2::Quaternion q(
+        msg.orientation.x,
+        msg.orientation.y,
+        msg.orientation.z,
+        msg.orientation.w);
+    current_state_.yaw = tf2::getYaw(q);
 }
 
 void MPCNode::VescServoCallback(const std_msgs::msg::Float64::SharedPtr msg)

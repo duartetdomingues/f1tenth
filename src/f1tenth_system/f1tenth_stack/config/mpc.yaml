@@ -2,7 +2,10 @@
 mpc:
   ros__parameters:
     odom_topic: "/odometry/filtered"  # EKF odometry topic
-    #odom_topic: "/vesc/odom" # Vesc odometry topic
+    # Optional odometry topic for Vesc
+    # odom_topic: "/vesc/odom"
+
+    pose_topic: "/pose"  # Pose topic, leave empty "" if not using pose
 
     traj_file: "traj/pts/centerline_map_2025_05_08-19_59.csv" # Trajectory file
     #traj_file: "traj/pts/oito_n1000_a2.5_b1.8_v1.0.csv" # Trajectory file
