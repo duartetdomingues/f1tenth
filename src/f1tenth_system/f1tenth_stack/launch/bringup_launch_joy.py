@@ -211,14 +211,20 @@ def generate_launch_description():
         package='tf2_ros',
         executable='static_transform_publisher',
         name='static_baselink_to_vesc',
-        arguments=['0.0', '0.0','0.05','-1.5601498','0.01884956', '0.0', 'base_link', 'vesc']
+        #arguments=['0.0', '0.0','0.05','-1.5601498','0.01884956', '0.0', 'base_link', 'vesc']
+        #arguments=['0.0', '0.0','0.05','0.0', '-0.0113', '-3.1359', 'base_link', 'vesc']
+        #arguments=['0.0', '0.0','0.05','-1.5601498','0.01884956', '0.0', 'base_link', 'vesc']
+        arguments=['0.0', '0.0','0.05','-1.57079633', '0.02247855', '0.08661512', 'base_link', 'vesc'] #Calibrated on 2025-05-29
     )
 
     static_tf_node_xsens = Node(
         package='tf2_ros',
         executable='static_transform_publisher',
         name='static_baselink_to_vesc',
-        arguments=['0.0', '-0.01','0.0','-1.5640','-0.02', '3.141', 'base_link', 'xsens']
+        #arguments=['0.0', '-0.01','0.0','-1.5640','-0.02', '3.141', 'base_link', 'xsens']
+        #arguments=['0.0', '-0.01','0.0','-1.5882','0.0002','-3.1268', 'base_link', 'xsens']
+        #arguments=['0.0', '-0.01','0.0','1.57090571', '-0.00560494', '3.12207931', 'base_link', 'xsens']
+        arguments=['0.0', '-0.01','0.0','1.57079633', '0.01232010', '-3.12882549', 'base_link', 'xsens'] #Calibrated on 2025-05-29
     )
 
     static_tf_node_zed2i = Node(
@@ -226,7 +232,10 @@ def generate_launch_description():
         executable='static_transform_publisher',
         name='static_baselink_to_zed2i',
         #arguments=['0.2', '0.0','0.1','0.5','-0.5', '0.5', '-0.5', 'base_link', 'zed2i']
-        arguments=['0.2', '0.0','0.1','0.46706241', '-0.46706241',  '0.53089801', '-0.53089801', 'base_link', 'zed2i']
+        #arguments=['0.2', '0.0','0.1','0.46706241', '-0.46706241',  '0.53089801', '-0.53089801', 'base_link', 'zed2i']
+        #arguments=['0.2', '0.0','0.1','0.46697594', '-0.46697437', '0.52135815', '-0.54042028', 'base_link', 'zed2i']
+        #arguments=['0.2', '0.0','0.1','1.5640', '0.0', '1.5640', 'base_link', 'zed2i']
+        arguments=['0.2', '0.0','0.1','1.57079633', '0.01425753', '1.41652568', 'base_link', 'zed2i'] #Calibrated on 2025-05-29
     )
 
     """ zed_node = Node(

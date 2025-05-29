@@ -1,7 +1,7 @@
 ekf_filter_node:
   ros__parameters:
     frequency: 50.0
-    two_d_mode: True
+    #two_d_mode: True
     publish_tf: True
     odom_frame: "odom"
     base_link_frame: "base_link"
@@ -44,22 +44,22 @@ ekf_filter_node:
 
 
 #
-    imu0: "imu/data"
-    imu0_remove_gravitational_acceleration: True   
-    imu0_relative: True
-
+    #imu0: "imu/data"
+    #imu0_remove_gravitational_acceleration: true 
+    #imu0_relative: false
+#
     #imu0_config: [false, false, false,   # X, Y, Z
     #            false, false, true,  # Roll, Pitch, Yaw
     #            false, false, false,   # dX, dY, dZ
     #            false, false, true,  # dRoll, dPitch, dYaw
-    #            true, true, false] # Acceleration (X, Y, Z)
+    #            true, true, true] # Acceleration (X, Y, Z)
 
     #Without Acceleration
-    imu0_config: [false, false, false,   # X, Y, Z
-                  false, false, true,  # Roll, Pitch, Yaw
-                  false, false, false,   # dX, dY, dZ
-                  false, false, true,  # dRoll, dPitch, dYaw
-                  false, false, false] # Acceleration (X, Y, Z)
+    #imu0_config: [false, false, false,   # X, Y, Z
+    #              false, false, true,  # Roll, Pitch, Yaw
+    #              false, false, false,   # dX, dY, dZ
+    #              false, false, true,  # dRoll, dPitch, dYaw
+    #              false, false, false] # Acceleration (X, Y, Z)
 
 
     #imu0: "vesc/imu/raw"
@@ -85,10 +85,10 @@ ekf_filter_node:
 
                   
     
-    imu1: "vesc/imu/raw"
-    
-    imu1_remove_gravitational_acceleration: True
-    imu1_relative: True
+    #imu1: "vesc/imu/raw"
+    #
+    #imu1_remove_gravitational_acceleration: True
+    #imu1_relative: True
 
     #imu1_config: [false, false, false,
     #              false, false, true,  # Roll, Pitch, Yaw
@@ -97,11 +97,11 @@ ekf_filter_node:
     #              true, true, false]
 
     #Without Acceleration
-    imu1_config: [false, false, false,   # X, Y, Z
-                  false, false, true,  # Roll, Pitch, Yaw
-                  false, false, false,   # dX, dY, dZ
-                  false, false, true,  # dRoll, dPitch, dYaw
-                  false, false, false] # Acceleration (X, Y, Z)
+    #imu1_config: [false, false, false,   # X, Y, Z
+    #              false, false, true,  # Roll, Pitch, Yaw
+    #              false, false, false,   # dX, dY, dZ
+    #              false, false, true,  # dRoll, dPitch, dYaw
+    #              false, false, false] # Acceleration (X, Y, Z)
 
 
     #imu1_config: [false, false, false,   # X, Y, Z
@@ -113,11 +113,11 @@ ekf_filter_node:
     
     
     
-    imu2: "zed2i/imu/data"
-    imu2_config: [false, false, false,
+    imu0: "zed2i/imu/data"
+    imu0_config: [false, false, false,
                   false, false, false,  # Roll, Pitch, Yaw
                   false, false, false,
                   false, false, true,
-                  false, false, false]
-    imu2_remove_gravitational_acceleration: True
-    imu2_relative: True
+                  true, true, true]
+    imu0_remove_gravitational_acceleration: False
+    imu0_relative: True
