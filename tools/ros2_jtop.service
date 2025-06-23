@@ -1,0 +1,14 @@
+[Unit]
+Description=ROS 2 Jetson Stats JTOP Service
+After=network.target
+
+[Service]
+Type=simple
+User=jetson
+Group=jetson
+WorkingDirectory=/home/jetson
+ExecStart=/usr/bin/bash -c "source /opt/ros/humble/setup.bash && source ~/f1tenth/install/setup.bash && ros2 run ros2_jetson_stats ros2_jtop"
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target

@@ -254,11 +254,7 @@ def generate_launch_description():
         parameters=[LaunchConfiguration('mpc_config')]
     )
 
-    jetson_node = Node(
-        package='ros2_jetson_stats',
-        executable='ros2_jtop',
-        name='ros2_jetson_stats'
-    )
+   
 
     zed_camera_node = Node(
         package='zed_rgb_node',
@@ -305,7 +301,7 @@ def generate_launch_description():
 
     ld.add_action(mpc_node)
 
-    ld.add_action(jetson_node)
+    
 
 
     return ld

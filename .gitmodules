@@ -9,4 +9,4 @@
 	url = git@github.com:cra-ros-pkg/robot_localization.git
 [submodule "src/zed-ros2-wrapper"]
 	path = src/zed-ros2-wrapper
-	url = git@github.com:stereolabs/zed-ros2-wrapper.git
+	url = git@github.com:duartetdomingues/zed-ros2-wrapper.git
