@@ -34,13 +34,13 @@ joy_teleop:
       deadman_buttons: [1]
       axis_mappings:
         drive-acceleration:
-          axis: 5
-          scale: -0.05
-          offset: 0.05
-        drive-jerk:
           axis: 4
-          scale: -0.05
-          offset: 0.05
+          scale:  -0.1
+          offset: 0.0
+        drive-jerk:
+          axis: 5
+          scale:  -0.1
+          offset: 0.0
         drive-steering_angle:
           axis: 0
           scale: -0.4

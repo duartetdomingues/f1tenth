@@ -130,7 +130,7 @@
         # Message Publishers, Also the output configurations if enable_outputConfig is set to true
         # ------------------
         # Enable or disable publication of various sensor data:
-        pub_utctime: true
+        pub_utctime: false
         pub_sampletime: true
         pub_imu: true
         pub_quaternion: true
@@ -196,7 +196,7 @@
 
         # Other option flags:
         # valid for MTi-2/3/7/8/20/30/620/630/670/680/200/300/710
-        enable_inrun_compass_calibration: false
+        enable_inrun_compass_calibration: true
 
 
         # Set baudrate
@@ -229,9 +229,9 @@
         # Sensor Standard Deviation (Optional)
         # ------------------------------------
         # Override the covariance matrix in sensor_msgs/Imu and sensor_msgs/MagneticField messages:
-        linear_acceleration_stddev: [0.1, 0.1, 0.1] # [m/s^2] Standard deviation for linear acceleration
-        angular_velocity_stddev: [0.0035, 0.0035, 0.0035]   # [rad/s] Standard deviation for angular velocity
-        orientation_stddev: [0.0087, 0.0087, 0.0175]  # [rad]   Standard deviation for orientation
+        linear_acceleration_stddev: [0.3, 0.3, 0.4] # [m/s^2] Standard deviation for linear acceleration
+        angular_velocity_stddev: [0.035, 0.035, 0.035]   # [rad/s] Standard deviation for angular velocity
+        orientation_stddev: [0.087, 0.087, 0.175]  # [rad]   Standard deviation for orientation
         magnetic_field_stddev: [0.0, 0.0, 0.0]     # [Tesla] Standard deviation for magnetic field
 
 
