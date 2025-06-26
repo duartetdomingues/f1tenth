@@ -13,7 +13,7 @@
 	url = git@github.com:stereolabs/zed-ros2-wrapper.git
 [submodule "src/cartographer_ros"]
 	path = src/cartographer_ros
-	url = git@github.com:ros2/cartographer_ros.git
+	url = git@github.com:duartetdomingues/cartographer_ros.git
 [submodule "src/cartographer"]
 	path = src/cartographer
 	url = git@github.com:ros2/cartographer.git
