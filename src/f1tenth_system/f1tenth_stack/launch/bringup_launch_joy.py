@@ -291,7 +291,7 @@ def generate_launch_description():
     )
 
    
-    zed_camera_node = Node(
+    """ zed_camera_node = Node(
         package='zed_rgb_node',
         executable='zed_rgb_node',
         name='zed_rgb_node'
@@ -301,7 +301,7 @@ def generate_launch_description():
         package='zed_sdk_cpp',
         executable='zed_sdk_cpp',
         name='zed_sdk_cpp'
-    )
+    ) """
 
     """ save_map = RegisterEventHandler(
         OnShutdown(
@@ -318,20 +318,22 @@ def generate_launch_description():
     ld.add_action(static_tf_node_xsens)
     ld.add_action(static_tf_node_zed2i)
 
-    #ld.add_action(joy_node)
+    ld.add_action(joy_node)
     ld.add_action(joy_teleop_node)
     
     ld.add_action(ackermann_to_vesc_node)
     ld.add_action(vesc_to_odom_node)
     ld.add_action(vesc_driver_node)
+    
     #ld.add_action(throttle_interpolator_node)
+    
     ld.add_action(urg_node)
     
     ld.add_action(ackermann_mux_node)
    
     #ld.add_action(zed_node)
     #ld.add_action(zed_camera_node)
-    ld.add_action(zed_sdk_node)
+    #ld.add_action(zed_sdk_node)
 
     ld.add_action(robot_localization_node)
     ld.add_action(path_robot_localization_node)
@@ -339,7 +341,7 @@ def generate_launch_description():
 
     ld.add_action(xsens_node)
     
-    ld.add_action(slam_node_map)
+    #ld.add_action(slam_node_map)
     #ld.add_action(slam_node_loc)
     #ld.add_action(save_map)
 
