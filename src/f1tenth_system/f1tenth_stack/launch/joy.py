@@ -309,7 +309,7 @@ def generate_launch_description():
     #ld.add_action(static_tf_node_zed2i)
 
     ld.add_action(joy_node)
-    #ld.add_action(joy_teleop_node)
+    ld.add_action(joy_teleop_node)
     
     #ld.add_action(ackermann_to_vesc_node)
     #ld.add_action(vesc_to_odom_node)
