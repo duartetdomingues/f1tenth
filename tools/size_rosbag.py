@@ -2,8 +2,14 @@
 
 import sqlite3
 from collections import defaultdict
+import os
 
-bag_path = '/home/jetson/rosbag/rosbag2_2025_05_30-14_42_08/rosbag2_2025_05_30-14_42_08_0.db3'
+# Get the path to the bag folder (not the metadata.db3 file)
+bag_folder = '/home/desktop/Documents/rosbag/test_mapping_06_26/no_slam/rosbag2_2025_06_26-15_47_53'
+db_name = os.path.basename(bag_folder)
+bag_path = os.path.join(bag_folder, db_name + '_0.db3')
+
+print(f"Analyzing bag file at: {bag_path}")
 
 conn = sqlite3.connect(bag_path)
 cursor = conn.cursor()
