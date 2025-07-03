@@ -12,32 +12,34 @@ class ImuTfConverter : public rclcpp::Node
 public:
     ImuTfConverter() : Node("imu_tf_converter_node"), tf_buffer_(this->get_clock()), tf_listener_(tf_buffer_)
     {
+        get_xsens_tf(); // Get the transform from xsens to base_link
+
         imu_sub_ = this->create_subscription<sensor_msgs::msg::Imu>(
             "/imu/data", 10,
             std::bind(&ImuTfConverter::imuCallback, this, std::placeholders::_1));
 
         imu_pub_ = this->create_publisher<sensor_msgs::msg::Imu>("/imu_base_link", 10);
+
+        timer_print_status_ = this->create_wall_timer(
+            std::chrono::seconds(5), // Print status every second
+            [this]()
+            {
+                RCLCPP_INFO(this->get_logger(), "Received Xsens Msg: %.2f hz",
+                            rcv_xsens_count_/5.0);
+                rcv_xsens_count_ = 0;
+            });
     }
 
 private:
     void imuCallback(const sensor_msgs::msg::Imu::SharedPtr msg)
     {
-        geometry_msgs::msg::TransformStamped transform;
-
-        try {
-            transform = tf_buffer_.lookupTransform(
-                "base_link", msg->header.frame_id,
-                tf2::TimePointZero); // tempo mais recente
-        } catch (tf2::TransformException &ex) {
-            RCLCPP_WARN(this->get_logger(), "Transform failed: %s", ex.what());
-            return;
-        }
+        rcv_xsens_count_++;
 
         // 1. Transformar orientação
         tf2::Quaternion q_orig, q_rot, q_new;
         tf2::fromMsg(msg->orientation, q_orig);
-        tf2::fromMsg(transform.transform.rotation, q_rot);
-        q_new = q_rot * q_orig;
+        
+        q_new = xsens_rot_ * q_orig;
         q_new.normalize();
 
         // 2. Transformar vetores (acc e vel angular)
@@ -86,11 +88,34 @@ private:
         return cov_out;
     }
 
+    void get_xsens_tf()
+    {
+        geometry_msgs::msg::TransformStamped transform;
+        // Get the transform from xsens to base_link
+        rclcpp::Rate rate(1.0); // 1 Hz
+        while (rclcpp::ok()) {
+            try {
+                transform = tf_buffer_.lookupTransform("base_link", "xsens", tf2::TimePointZero);
+                tf2::fromMsg(transform.transform.rotation, xsens_rot_);
+                break;
+            } catch (tf2::TransformException &ex) {
+                RCLCPP_WARN(this->get_logger(), "Waiting for xsens->base_link transform: %s", ex.what());
+                rate.sleep();
+            }
+        }
+        RCLCPP_INFO(this->get_logger(), "Transform from xsens to base_link obtained.");
+    }
+
 
     rclcpp::Subscription<sensor_msgs::msg::Imu>::SharedPtr imu_sub_;
     rclcpp::Publisher<sensor_msgs::msg::Imu>::SharedPtr imu_pub_;
+    rclcpp::TimerBase::SharedPtr timer_print_status_;
     tf2_ros::Buffer tf_buffer_;
     tf2_ros::TransformListener tf_listener_;
+
+    tf2::Quaternion xsens_rot_; // Transform from xsens to base_link
+
+    int  rcv_xsens_count_ = 0;
 };
 
 int main(int argc, char **argv)
