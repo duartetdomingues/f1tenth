@@ -222,7 +222,7 @@ def generate_launch_description():
     static_tf_node_xsens = Node(
         package='tf2_ros',
         executable='static_transform_publisher',
-        name='static_baselink_to_vesc',
+        name='static_baselink_to_xsens',
         #arguments=['0.0', '-0.01','0.0','-1.5640','-0.02', '3.141', 'base_link', 'xsens']
         #arguments=['0.0', '-0.01','0.0','-1.5882','0.0002','-3.1268', 'base_link', 'xsens']
         #arguments=['0.0', '-0.01','0.0','1.57090571', '-0.00560494', '3.12207931', 'base_link', 'xsens']

@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.8)
-project(imu_ekf_cpp)
+project(imu_base_link)
 
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options(-Wall -Wextra -Wpedantic)
@@ -10,6 +10,7 @@ find_package(ament_cmake REQUIRED)
 # uncomment the following section in order to fill in
 # further dependencies manually.
 # find_package(<dependency> REQUIRED)
+
 find_package(rclcpp REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(nav_msgs REQUIRED)
@@ -19,12 +20,14 @@ find_package(tf2_ros REQUIRED)
 find_package(tf2_geometry_msgs REQUIRED)
 
 
-add_executable(imu_ekf_cpp src/ekf_imu.cpp)
-ament_target_dependencies(imu_ekf_cpp rclcpp nav_msgs sensor_msgs geometry_msgs tf2_geometry_msgs tf2 tf2_ros)
+add_executable(imu_base_link src/xsens_tf.cpp)
+ament_target_dependencies(imu_base_link rclcpp nav_msgs sensor_msgs geometry_msgs tf2_geometry_msgs tf2 tf2_ros)
 
 install(TARGETS
-  imu_ekf_cpp
+  imu_base_link
   DESTINATION lib/${PROJECT_NAME})
+
+
 
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)

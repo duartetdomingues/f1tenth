@@ -5,7 +5,7 @@ joy:
     deadzone: 0.01
     autorepeat_rate: 20.0
     #coalesce_interval: 0.01
-    #default_trig_val: true
+    default_trig_val: true
 
 joy_teleop:
   ros__parameters:
@@ -22,7 +22,7 @@ joy_teleop:
         drive-steering_angle:
           axis: 2
           scale: 0.0
-          offset: 0.475
+          offset: 0.0
         # drive-jerk:  # Pode ser configurado para o controle de freio, se necessário
         #   axis: 3
         #   scale: 0.0  # Valor negativo para "desacelerar" ou aplicar o freio
@@ -45,7 +45,7 @@ joy_teleop:
         drive-steering_angle:
           axis: 0
           scale: -0.4
-          offset: 0.475
+          offset: 0.0
 
 #    human_control:
 #      type: topic

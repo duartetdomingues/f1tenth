@@ -67,7 +67,15 @@ private:
 
         imu_msg_->header = msg->header;
 
-        imu_msg_->linear_acceleration = msg->accel.accel.linear;
+        // Add z axis acceleration 
+        float gravity_z = 9.81; // Assuming gravity in m/s^2
+        imu_msg_->linear_acceleration.x = msg->accel.accel.linear.x;
+        imu_msg_->linear_acceleration.y = msg->accel.accel.linear.y;
+        imu_msg_->linear_acceleration.z = msg->accel.accel.linear.z + gravity_z; // Adding gravitational acceleration to z-axis
+
+        //imu_msg_->linear_acceleration = msg->accel.accel.linear;
+
+        
         
         for (int i = 0; i < 9; ++i)
         {
