@@ -38,6 +38,7 @@
 #include "acados_c/external_function_interface.h"
 
 // example specific
+
 #include "mpc_model_model/mpc_model_model.h"
 
 
@@ -117,6 +118,7 @@ int mpc_model_acados_create(mpc_model_solver_capsule* capsule)
 
 int mpc_model_acados_update_time_steps(mpc_model_solver_capsule* capsule, int N, double* new_time_steps)
 {
+
     if (N != capsule->nlp_solver_plan->N) {
         fprintf(stderr, "mpc_model_acados_update_time_steps: given number of time steps (= %d) " \
             "differs from the currently allocated number of " \
@@ -136,6 +138,7 @@ int mpc_model_acados_update_time_steps(mpc_model_solver_capsule* capsule, int N,
         ocp_nlp_cost_model_set(nlp_config, nlp_dims, nlp_in, i, "scaling", &new_time_steps[i]);
     }
     return 0;
+
 }
 
 /**
@@ -153,7 +156,6 @@ void mpc_model_acados_create_set_plan(ocp_nlp_plan_t* nlp_solver_plan, const int
 
     nlp_solver_plan->ocp_qp_solver_plan.qp_solver = FULL_CONDENSING_HPIPM;
     nlp_solver_plan->relaxed_ocp_qp_solver_plan.qp_solver = FULL_CONDENSING_HPIPM;
-
     nlp_solver_plan->nlp_cost[0] = NONLINEAR_LS;
     for (int i = 1; i < N; i++)
         nlp_solver_plan->nlp_cost[i] = NONLINEAR_LS;
@@ -240,7 +242,9 @@ static ocp_nlp_dims* mpc_model_acados_create_setup_dimensions(mpc_model_solver_c
     nbx[0] = NBX0;
     nsbx[0] = 0;
     ns[0] = NS0;
+    
     nbxe[0] = 5;
+    
     ny[0] = NY0;
     nh[0] = NH0;
     nsh[0] = NSH0;
@@ -304,7 +308,6 @@ static ocp_nlp_dims* mpc_model_acados_create_setup_dimensions(mpc_model_solver_c
     ocp_nlp_dims_set_constraints(nlp_config, nlp_dims, N, "nh", &nh[N]);
     ocp_nlp_dims_set_constraints(nlp_config, nlp_dims, N, "nsh", &nsh[N]);
     ocp_nlp_dims_set_cost(nlp_config, nlp_dims, N, "ny", &ny[N]);
-
     free(intNp1mem);
 
     return nlp_dims;
@@ -382,7 +385,7 @@ void mpc_model_acados_create_setup_functions(mpc_model_solver_capsule* capsule)
 
 
 /**
- * Internal function for mpc_model_acados_create: step 4
+ * Internal function for mpc_model_acados_create: step 5
  */
 void mpc_model_acados_create_set_default_parameters(mpc_model_solver_capsule* capsule)
 {
@@ -448,6 +451,7 @@ void mpc_model_acados_setup_nlp_in(mpc_model_solver_capsule* capsule, const int 
         }
         free(cost_scaling);
     }
+
 
 
     /**** Dynamics ****/
@@ -518,6 +522,7 @@ void mpc_model_acados_setup_nlp_in(mpc_model_solver_capsule* capsule, const int 
     }
     ocp_nlp_cost_model_set_external_param_fun(nlp_config, nlp_dims, nlp_in, N, "nls_y_fun", &capsule->cost_y_e_fun);
     ocp_nlp_cost_model_set_external_param_fun(nlp_config, nlp_dims, nlp_in, N, "nls_y_fun_jac", &capsule->cost_y_e_fun_jac_ut_xt);
+
 
 
 
@@ -855,7 +860,6 @@ int mpc_model_acados_update_qp_solver_cond_N(mpc_model_solver_capsule* capsule, 
 {
     printf("\nacados_update_qp_solver_cond_N() not implemented, since no partial condensing solver is used!\n\n");
     exit(1);
-    return -1;
 }
 
 

@@ -6,17 +6,22 @@ from skimage.morphology import skeletonize
 from skimage.util import invert
 
 # === CONFIGURAÇÕES ===
-map_pgm_path = "map_2025_05_07-19_47.pgm"
-map_yaml_path = "map_2025_05_07-19_47.yaml"
+map_pgm_path = "./maps/map_2025-07-03_15-58-31/map_output.pgm"
+map_yaml_path = "./maps/map_2025-07-03_15-58-31/map_output.yaml"
 
 # === FUNÇÃO: Carrega o mapa e parâmetros ===
 def load_map(map_pgm_path, map_yaml_path):
+
+    print(f"[INFO] Carregando mapa de {map_pgm_path} e metadados de {map_yaml_path}")
+    
     with open(map_yaml_path, 'r') as f:
         map_metadata = yaml.safe_load(f)
     resolution = map_metadata['resolution']
     origin = map_metadata['origin']  # [x, y, theta]
 
     map_img = cv2.imread(map_pgm_path, cv2.IMREAD_GRAYSCALE)
+    if map_img is None:
+        raise FileNotFoundError(f"Could not load image at path: {map_pgm_path}")
     _, binary = cv2.threshold(map_img, 250, 255, cv2.THRESH_BINARY)
 
     # === Mostrar imagem com escala em metros ===
@@ -93,7 +98,10 @@ plt.imshow(binary_map, cmap='gray')
 #plt.scatter([j for i, j in skeleton_coords_px], [i for i, j in skeleton_coords_px], s=1, c='red', label='Centerline')
 for contour in contours:
     contour = contour.squeeze()
-    plt.plot(contour[:,0], contour[:,1], color='blue', linewidth=1, label='Boundary')
+    if contour.ndim == 1 and contour.shape[0] == 2:
+        plt.plot(contour[0], contour[1], marker='o', color='blue', linewidth=1, label='Boundary')
+    elif contour.ndim == 2:
+        plt.plot(contour[:,0], contour[:,1], color='blue', linewidth=1, label='Boundary')
 plt.legend()
 plt.title("Centerline and Boundaries")
 plt.gca().invert_yaxis()
@@ -101,5 +109,5 @@ plt.axis("equal")
 plt.show()
 
 # === OUTPUT EXEMPLO ===
-print(f"[INFO] Centerline points (world): {len(centerline_world)}")
-print(f"[INFO] Boundary points (world): {len(boundary_world)}")
+#print(f"[INFO] Centerline points (world): {len(centerline_world)}")
+#print(f"[INFO] Boundary points (world): {len(boundary_world)}")
