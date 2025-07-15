@@ -45,7 +45,7 @@ option(BUILD_ACADOS_SIM_SOLVER_LIB "Should the simulation solver library acados_
 
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU" AND CMAKE_SYSTEM_NAME MATCHES "Windows")
     # MinGW: remove prefix and change suffix to match MSVC
-    # (such that Matlab mex recognizes the libraries)
+    # (such that MATLAB mex recognizes the libraries)
     set(CMAKE_SHARED_LIBRARY_PREFIX "")
     set(CMAKE_IMPORT_LIBRARY_SUFFIX ".lib")
     set(CMAKE_IMPORT_LIBRARY_PREFIX "")
@@ -65,7 +65,6 @@ endif()
 set(MODEL_OBJ model_mpc_model)
 set(OCP_OBJ ocp_mpc_model)
 set(SIM_OBJ sim_mpc_model)
-
 # model
 set(MODEL_SRC
     mpc_model_model/mpc_model_expl_ode_fun.c
@@ -73,7 +72,6 @@ set(MODEL_SRC
     mpc_model_model/mpc_model_expl_vde_adj.c
 )
 add_library(${MODEL_OBJ} OBJECT ${MODEL_SRC} )
-
 
 
 # optimal control problem - mostly CasADi exports
@@ -103,8 +101,8 @@ set(EXTERNAL_DIR)
 set(EXTERNAL_LIB)
 
 # set some search paths for preprocessor and linker
-set(ACADOS_INCLUDE_PATH /home/duarte/acados/include CACHE PATH "Define the path which contains the include directory for acados.")
-set(ACADOS_LIB_PATH /home/duarte/acados/lib CACHE PATH "Define the path which contains the lib directory for acados.")
+set(ACADOS_INCLUDE_PATH /home/desktop/acados/include CACHE PATH "Define the path which contains the include directory for acados.")
+set(ACADOS_LIB_PATH /home/desktop/acados/lib CACHE PATH "Define the path which contains the lib directory for acados.")
 
 # c-compiler flags for debugging
 set(CMAKE_C_FLAGS_DEBUG "-O0 -ggdb")
@@ -133,7 +131,9 @@ endif()
 # bundled_shared_lib
 if(${BUILD_ACADOS_SOLVER_LIB})
     set(LIB_ACADOS_SOLVER acados_solver_mpc_model)
-    add_library(${LIB_ACADOS_SOLVER} SHARED $<TARGET_OBJECTS:${MODEL_OBJ}> $<TARGET_OBJECTS:${OCP_OBJ}>
+    add_library(${LIB_ACADOS_SOLVER} SHARED
+    $<TARGET_OBJECTS:${MODEL_OBJ}>
+    $<TARGET_OBJECTS:${OCP_OBJ}>
         $<TARGET_OBJECTS:${SIM_OBJ}>)
     install(TARGETS ${LIB_ACADOS_SOLVER} DESTINATION ${CMAKE_INSTALL_PREFIX})
 endif(${BUILD_ACADOS_SOLVER_LIB})
@@ -141,7 +141,9 @@ endif(${BUILD_ACADOS_SOLVER_LIB})
 # ocp_shared_lib
 if(${BUILD_ACADOS_OCP_SOLVER_LIB})
     set(LIB_ACADOS_OCP_SOLVER acados_ocp_solver_mpc_model)
-    add_library(${LIB_ACADOS_OCP_SOLVER} SHARED $<TARGET_OBJECTS:${MODEL_OBJ}> $<TARGET_OBJECTS:${OCP_OBJ}>)
+    add_library(${LIB_ACADOS_OCP_SOLVER} SHARED
+    $<TARGET_OBJECTS:${MODEL_OBJ}>
+    $<TARGET_OBJECTS:${OCP_OBJ}>)
     # Specify libraries or flags to use when linking a given target and/or its dependents.
     target_link_libraries(${LIB_ACADOS_OCP_SOLVER} PRIVATE ${EXTERNAL_LIB})
     target_link_directories(${LIB_ACADOS_OCP_SOLVER} PRIVATE ${EXTERNAL_DIR})
@@ -150,7 +152,9 @@ endif(${BUILD_ACADOS_OCP_SOLVER_LIB})
 
 # example
 if(${BUILD_EXAMPLE})
-    add_executable(${EX_EXE} ${EX_SRC} $<TARGET_OBJECTS:${MODEL_OBJ}> $<TARGET_OBJECTS:${OCP_OBJ}>
+    add_executable(${EX_EXE} ${EX_SRC}
+    $<TARGET_OBJECTS:${MODEL_OBJ}>
+    $<TARGET_OBJECTS:${OCP_OBJ}>
         $<TARGET_OBJECTS:${SIM_OBJ}>)
     install(TARGETS ${EX_EXE} DESTINATION ${CMAKE_INSTALL_PREFIX})
 endif(${BUILD_EXAMPLE})

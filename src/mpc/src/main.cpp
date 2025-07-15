@@ -47,7 +47,7 @@ MPCNode::MPCNode() : Node("mpc_node"),
 
     if (use_pose_topic_)
     {
-        pose_sub_ = this->create_subscription<geometry_msgs::msg::PoseWithCovarianceStamped>(
+        pose_sub_ = this->create_subscription<geometry_msgs::msg::PoseStamped>(
             pose_topic_, 10, std::bind(&MPCNode::PoseCallback, this, std::placeholders::_1));
     }
     vesc_servo_sub_ = this->create_subscription<std_msgs::msg::Float64>(
@@ -69,12 +69,12 @@ MPCNode::MPCNode() : Node("mpc_node"),
     }
 
     // Initialize ACADOS solver
-    nlp_config_ = mpc_model_acados_get_nlp_config(capsule);
+      nlp_config_ = mpc_model_acados_get_nlp_config(capsule);
     nlp_dims_ = mpc_model_acados_get_nlp_dims(capsule);
     nlp_in_ = mpc_model_acados_get_nlp_in(capsule);
     nlp_out_ = mpc_model_acados_get_nlp_out(capsule);
     nlp_solver_ = mpc_model_acados_get_nlp_solver(capsule);
-    nlp_opts_ = mpc_model_acados_get_nlp_opts(capsule);
+    nlp_opts_ = mpc_model_acados_get_nlp_opts(capsule); 
 
     // Set weights for the cost function
     // std::vector<double> cost_weights = {1.0, 1.0, 0.0, 0.0, 0.0, 0.0}; // Example weights for x, y, sin(psi), cos(psi), steering, velocity
@@ -141,9 +141,18 @@ void MPCNode::solveMPC()
     ocp_nlp_constraints_model_set(nlp_config_, nlp_dims_, nlp_in_, nlp_out_, 0, "lbx", current_state_vector_.data());
     ocp_nlp_constraints_model_set(nlp_config_, nlp_dims_, nlp_in_, nlp_out_, 0, "ubx", current_state_vector_.data());
 
+     // Publish state array
+    std_msgs::msg::Float64MultiArray state_array_msg;
+    state_array_msg.data = {current_state_vector_[0],
+                            current_state_vector_[1],
+                            current_state_vector_[2],
+                            current_state_vector_[3],
+                            current_state_vector_[4]};
+    state_pub_->publish(state_array_msg);
+
     // Solve the MPC problem
-    // int status = ocp_nlp_solve(nlp_solver_, nlp_in_, nlp_out_);
-    int status = mpc_model_acados_solve(capsule);
+    int status = ocp_nlp_solve(nlp_solver_, nlp_in_, nlp_out_);
+    //int status = mpc_model_acados_solve(capsule);
     // mpc_model_acados_print_stats(capsule);
     /* std::vector<double> xtraj((N + 1) * 6);
     std::vector<double> utraj(N * 2);
@@ -176,20 +185,11 @@ void MPCNode::solveMPC()
     ackermann_msgs::msg::AckermannDriveStamped control_vesc_msg;
     control_vesc_msg.header.stamp = this->get_clock()->now();
     control_vesc_msg.header.frame_id = "base_link";
-    control_vesc_msg.drive.steering_angle = control_output[0] * steering_angle_to_servo_gain + steering_angle_to_servo_offset;
+    control_vesc_msg.drive.steering_angle = control_output[0] * steering_angle_to_servo_gain;
     control_vesc_msg.drive.acceleration = control_output[1] * speed_to_duty;
 
     // Publish control output
     control_vesc_pub_->publish(control_vesc_msg);
-
-    // Publish state array
-    std_msgs::msg::Float64MultiArray state_array_msg;
-    state_array_msg.data = {current_state_vector_[0],
-                            current_state_vector_[1],
-                            current_state_vector_[2],
-                            current_state_vector_[3],
-                            current_state_vector_[4]};
-    state_pub_->publish(state_array_msg);
 
     // Publish control array
     std_msgs::msg::Float64MultiArray control_array_msg;
@@ -361,10 +361,10 @@ void MPCNode::OdomCallback(const nav_msgs::msg::Odometry::SharedPtr msg)
     
     current_state_.v = msg->twist.twist.linear.x;
 
-    /* if (!use_pose_topic_)
+    if (!use_pose_topic_)
     {
-        ProcessPose(msg->pose.pose);
-    }  */
+        //ProcessPose(msg->pose.pose);
+     
 
     geometry_msgs::msg::PoseStamped odom_pose;
     odom_pose.header = msg->header;
@@ -392,12 +392,13 @@ void MPCNode::OdomCallback(const nav_msgs::msg::Odometry::SharedPtr msg)
         map_pose.pose.orientation.z,
         map_pose.pose.orientation.w);
     current_state_.yaw = tf2::getYaw(q); 
+    } 
        
 }
 
-void MPCNode::PoseCallback(const geometry_msgs::msg::PoseWithCovarianceStamped::SharedPtr msg)
+void MPCNode::PoseCallback(const geometry_msgs::msg::PoseStamped::SharedPtr msg)
 {
-    //ProcessPose(msg->pose.pose);
+    ProcessPose(msg->pose);
 }
 
 void MPCNode::ProcessPose(const geometry_msgs::msg::Pose& msg)

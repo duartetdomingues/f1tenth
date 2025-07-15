@@ -77,8 +77,8 @@ OBJ+= $(OCP_OBJ)
 EXTERNAL_DIR=
 EXTERNAL_LIB=
 
-INCLUDE_PATH = /home/duarte/acados/include
-LIB_PATH = /home/duarte/acados/lib
+INCLUDE_PATH = /home/desktop/acados/include
+LIB_PATH = /home/desktop/acados/lib
 
 # preprocessor flags for make's implicit rules
 CPPFLAGS+= -I$(INCLUDE_PATH)
@@ -112,7 +112,7 @@ LIBACADOS_SIM_SOLVER=lib$(SIM_SRC:.c=.so)
 # virtual targets
 .PHONY : all clean
 
-all: clean example_sim example
+	all: clean example_sim example
 shared_lib: bundled_shared_lib ocp_shared_lib sim_shared_lib
 
 # some linker targets

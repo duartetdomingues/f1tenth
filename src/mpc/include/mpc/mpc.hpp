@@ -50,7 +50,7 @@ public:
 
 private:
     void OdomCallback(const nav_msgs::msg::Odometry::SharedPtr msg);
-    void PoseCallback(const geometry_msgs::msg::PoseWithCovarianceStamped::SharedPtr msg);
+    void PoseCallback(const geometry_msgs::msg::PoseStamped::SharedPtr msg);
     void ProcessPose(const geometry_msgs::msg::Pose& msg);
     void VescServoCallback(const std_msgs::msg::Float64::SharedPtr msg);
     bool load_reference_trajectory_from_csv(const std::string &filename);
@@ -68,7 +68,7 @@ private:
     rclcpp::Publisher<std_msgs::msg::Float64MultiArray>::SharedPtr control_vector_pub_;
 
     rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odomm_sub_;
-    rclcpp::Subscription<geometry_msgs::msg::PoseWithCovarianceStamped>::SharedPtr pose_sub_;
+    rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr pose_sub_;
     rclcpp::Subscription<std_msgs::msg::Float64>::SharedPtr vesc_servo_sub_;
 
     std::shared_ptr<tf2_ros::Buffer> tf_buffer_;
