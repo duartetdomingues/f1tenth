@@ -14,7 +14,7 @@ MPCNode::MPCNode() : Node("mpc_node"),
 
     // Declare parameters
     this->declare_parameter<std::string>("odom_topic", "/odometry/filtered");
-    this->declare_parameter<std::string>("traj_file", "/home/jetson/f1tenth/src/traj/pts/oito_n1000_a2.5_b1.8_v1.0.csv");
+    this->declare_parameter<std::string>("traj_file", "traj/pts/centerline_map_2025-07-16_15-28-18.csv");
     this->declare_parameter<std::string>("frame_id", "odom");
     this->declare_parameter<std::string>("pose_topic", "/pose");
 
@@ -37,10 +37,15 @@ MPCNode::MPCNode() : Node("mpc_node"),
     solved_time_pub_ = this->create_publisher<std_msgs::msg::Float64>("mpc/solved_time", 10);
     ref_path_pub_ = this->create_publisher<nav_msgs::msg::Path>("mpc/ref_path", 10);
     reference_trajectory_pub_ = this->create_publisher<nav_msgs::msg::Path>("mpc/ref_traj", rclcpp::QoS(rclcpp::KeepLast(1)).transient_local());
+    simulation_trajectory_pub_ = this->create_publisher<nav_msgs::msg::Path>("mpc/simulation_traj", rclcpp::QoS(rclcpp::KeepLast(1)).transient_local());
     state_pub_ = this->create_publisher<std_msgs::msg::Float64MultiArray>("mpc/state_array", 10);
     control_pub_ = this->create_publisher<std_msgs::msg::Float64MultiArray>("mpc/control_array", 10);
-    control_vector_pub_ = this->create_publisher<std_msgs::msg::Float64MultiArray>("mpc/control_vector", 10);
-    state_vector_pub_ = this->create_publisher<std_msgs::msg::Float64MultiArray>("mpc/state_vector", 10);
+    
+    for (int i = 0; i < 2; i++)
+        control_vector_pub_[i] = this->create_publisher<std_msgs::msg::Float64MultiArray>("mpc/predict_u" + std::to_string(i), 10);
+        
+    for (int i = 0; i < 5; i++)
+        state_vector_pub_[i] = this->create_publisher<std_msgs::msg::Float64MultiArray>("mpc/predict_x" + std::to_string(i), 10);
 
     odomm_sub_ = this->create_subscription<nav_msgs::msg::Odometry>(
         odom_topic, 10, std::bind(&MPCNode::OdomCallback, this, std::placeholders::_1));
@@ -77,14 +82,14 @@ MPCNode::MPCNode() : Node("mpc_node"),
     nlp_opts_ = mpc_model_acados_get_nlp_opts(capsule); 
 
     // Set weights for the cost function
-    // std::vector<double> cost_weights = {1.0, 1.0, 0.0, 0.0, 0.0, 0.0}; // Example weights for x, y, sin(psi), cos(psi), steering, velocity
-    /* std::vector<double> cost_weights = {10.0, 10.0, 1.0, 1.0, 1.0, 1.0}; // Example weights for x, y, sin(psi), cos(psi), steering, velocity
+    //std::vector<double> cost_weights = {1.0, 1.0, 0.0, 0.0, 0.0, 0.0}; // Example weights for x, y, sin(psi), cos(psi), steering, velocity
+    std::vector<double> cost_weights = {10.0, 10.0, 0.0, 0.0, 1.0, 1.0}; // Example weights for x, y, sin(psi), cos(psi), steering, velocity
     Eigen::MatrixXd W = Eigen::MatrixXd::Zero(6, 6);
     W.diagonal() << cost_weights[0], cost_weights[1], cost_weights[2], cost_weights[3], cost_weights[4], cost_weights[5];
     for (size_t k = 0; k < N; k++)
     {
         ocp_nlp_cost_model_set(nlp_config_, nlp_dims_, nlp_in_, k, "W", W.data());
-    } */
+    }
     // Set final cost weights
     // std::vector<double> final_cost_weights = {1.0, 1.0, 0.0, 0.0}; // Example weights for x, y, sin(psi), cos(psi), steering, velocity
     /* std::vector<double> final_cost_weights = {10.0, 10.0, 1.0, 1.0}; // Example weights for x, y, sin(psi), cos(psi), steering, velocity
@@ -197,20 +202,55 @@ void MPCNode::solveMPC()
     control_pub_->publish(control_array_msg);
 
     // Publish control vector
-    std::vector<double> control_vector(N * 2);
-    for (int ii = 0; ii < N; ii++)
-        ocp_nlp_out_get(nlp_config_, nlp_dims_, nlp_out_, ii, "u", &control_vector[ii * 2]);
-    std_msgs::msg::Float64MultiArray control_vector_msg;
-    control_vector_msg.data = control_vector;
-    control_vector_pub_->publish(control_vector_msg);
+    std::vector<double> predict_vector_u0(N), predict_vector_u1(N);
+    for (int ii = 0; ii < N; ii++) {
+        std::array<double, 2> control_vector;
+        ocp_nlp_out_get(nlp_config_, nlp_dims_, nlp_out_, ii, "u", control_vector.data());
+        predict_vector_u0[ii] = control_vector[0];
+        predict_vector_u1[ii] = control_vector[1];
+    }
+    std_msgs::msg::Float64MultiArray predict_u0_msg, predict_u1_msg;
+    predict_u0_msg.data = predict_vector_u0;
+    predict_u1_msg.data = predict_vector_u1;
+    control_vector_pub_[0]->publish(predict_u0_msg);
+    control_vector_pub_[1]->publish(predict_u1_msg);
 
     // Publish state vector
-    std::vector<double> state_vector((N + 1) * 6);
+    // Create a vector of 5 vectors, each with N+1 elements
+    std::vector<std::vector<double>> predict_vector_x(5, std::vector<double>(N + 1));
+    for (int ii = 0; ii <= N; ii++) {
+        std::array<double, 5> state_vector;
+        ocp_nlp_out_get(nlp_config_, nlp_dims_, nlp_out_, ii, "x", state_vector.data());
+        // Fill predict_vector_x: [x, y, yaw, theta, v]
+        for (int j = 0; j < 5; j++) {
+            predict_vector_x[j][ii] = state_vector[j];
+        }
+    }
+    std::vector<std_msgs::msg::Float64MultiArray> state_vector_msgs(5);
+    for (int i = 0; i < 5; i++) {
+        state_vector_msgs[i].data = predict_vector_x[i];
+        state_vector_pub_[i]->publish(state_vector_msgs[i]);
+    }
+
+   
+
+   /*  // Publish simulation trajectory
+    nav_msgs::msg::Path simulation_path;
+    simulation_path.header.stamp = this->get_clock()->now();
+    simulation_path.header.frame_id = frame_id_;
     for (int ii = 0; ii <= N; ii++)
-        ocp_nlp_out_get(nlp_config_, nlp_dims_, nlp_out_, ii, "x", &state_vector[ii * 6]);
-    std_msgs::msg::Float64MultiArray state_vector_msg;
-    state_vector_msg.data = state_vector;
-    state_vector_pub_->publish(state_vector_msg);
+    {
+        geometry_msgs::msg::PoseStamped pose;
+        pose.header = simulation_path.header;
+        pose.pose.position.x = predict_vector_x[0][ii];
+        pose.pose.position.y = predict_vector_x[1][ii];
+        tf2::Quaternion q;
+        q.setRPY(0, 0, predict_vector_x[2][ii]);
+        pose.pose.orientation = tf2::toMsg(q);
+        simulation_path.poses.push_back(pose);
+    }
+    simulation_trajectory_pub_->publish(simulation_path); */
+    
 } // RCLCPP_INFO(this->get_logger(), "Current steering angle: %f", current_state_.steering_angle);
 
 void MPCNode::set_trajectory_step()

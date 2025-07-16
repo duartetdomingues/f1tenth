@@ -267,6 +267,12 @@ def generate_launch_description():
         executable='zed_sdk_cpp',
         name='zed_sdk_cpp'
     )
+    
+    imu_base_link_node = Node(
+        package='imu_base_link',
+        executable='imu_base_link',
+        name='imu_base_link',
+    )
  
     
 
@@ -293,13 +299,15 @@ def generate_launch_description():
     #ld.add_action(zed_sdk_node)
 
     ld.add_action(robot_localization_node)
-    ld.add_action(path_robot_localization_node)
+    #ld.add_action(path_robot_localization_node)
 
     ld.add_action(xsens_node)
     
     #ld.add_action(slam_node)
 
     #ld.add_action(mpc_node)
+    
+    ld.add_action(imu_base_link_node)
 
     
 

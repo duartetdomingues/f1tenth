@@ -62,10 +62,12 @@ private:
     rclcpp::Publisher<std_msgs::msg::Float64>::SharedPtr solved_time_pub_;
     rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr ref_path_pub_;
     rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr reference_trajectory_pub_;
+    rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr simulation_trajectory_pub_;
     rclcpp::Publisher<std_msgs::msg::Float64MultiArray>::SharedPtr state_pub_;
     rclcpp::Publisher<std_msgs::msg::Float64MultiArray>::SharedPtr control_pub_;
-    rclcpp::Publisher<std_msgs::msg::Float64MultiArray>::SharedPtr state_vector_pub_;
-    rclcpp::Publisher<std_msgs::msg::Float64MultiArray>::SharedPtr control_vector_pub_;
+
+    std::array<rclcpp::Publisher<std_msgs::msg::Float64MultiArray>::SharedPtr, 5> state_vector_pub_;
+    std::array<rclcpp::Publisher<std_msgs::msg::Float64MultiArray>::SharedPtr, 2> control_vector_pub_;
 
     rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odomm_sub_;
     rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr pose_sub_;
