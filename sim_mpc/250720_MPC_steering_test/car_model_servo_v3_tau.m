@@ -11,7 +11,7 @@ disp(['Model Name: ' model_name]);
 % Parâmetros fixos
 servo_max_rate = 5.2360/10;       % velocidade angular máxima (rad/s)
 L = 0.35; % Distância entre eixos
-tau  = 0.1148;
+tau  = 0.164 ;%0.1148; % 0.164
 
 
 % Estados

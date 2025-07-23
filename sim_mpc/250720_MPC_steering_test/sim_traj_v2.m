@@ -76,7 +76,7 @@ import casadi.*
 
 if(compile_solver || ~exist('solver', 'var') )
     clear solver
-    solver = setup_ocp_v2(N, Ts, Q, R, delta_max, v_max);  % <- Verifica se tens este ficheiro
+    solver = setup_ocp_v1(N, Ts, Q, R, delta_max, v_max);  % <- Verifica se tens este ficheiro
     save('solver_data.mat', 'solver');
 else 
     % solver=acados_mex_create_mpc_model();

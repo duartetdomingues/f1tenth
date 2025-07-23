@@ -1,2 +1,0 @@
-
-    # Exibir o resultado final

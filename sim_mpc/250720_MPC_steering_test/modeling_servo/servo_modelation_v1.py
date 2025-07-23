@@ -112,7 +112,7 @@ def read_ros2_bag(bag_path):
                 yaw_rate = None
                 vel = None """
                 
-            if abs(yaw_rate) > 0.2 and vel > 0.5:  # Evita valores muito pequenos
+            if vel > 0.3:  # Evita valores muito pequenos
                 estimated_deltas.append(estimate_delta(yaw_rate, vel))  # Estimar delta com base na taxa de giro e velocidade
                 estimated_deltas_t.append(timestamp)  # Armazenar o timestamp correspondente
                 count += 1
@@ -162,8 +162,14 @@ def read_ros2_bag(bag_path):
     plt.grid()
     plt.show()
 
-    t = np.array(estimated_deltas_t) * 1e-9
-
+    t = (np.array(estimated_deltas_t) - estimated_deltas_t[0] ) * 1e-9  # Convertendo timestamps para segundos
+    
+    if bag_path == '/home/desktop/Documents/rosbag/mpc_test_steering_07_22/bag_1.5m_s/rosbag2_2025_07_22-18_02_29_0.db3':
+        t = t[t < 22]
+        estimated_deltas = estimated_deltas[:len(t)]
+        delta_cmd_interp = delta_cmd_interp[:len(t)]
+        print(f"Reduzindo o tempo para 22 segundos, tamanho de t: {len(t)}, estimated_deltas: {len(estimated_deltas)}, delta_cmd_interp: {len(delta_cmd_interp)}")
+    #
     # Função para o curve_fit
     def model_to_fit(t, tau):
         return simulate_first_order(delta_cmd_interp, t, tau, 1.0)
@@ -185,6 +191,8 @@ def read_ros2_bag(bag_path):
     gain_est = 1.0  # Ganho fixo para o ajuste
     print(f"Tau estimado: {tau_est:.4f} s, ganho estimado: {gain_est:.4f}")
     
+    rosbag_dir = bag_path.rsplit('/', 1)[0]  # Obtém o diretório do rosbag
+    
     df = pd.DataFrame({
     "tempo_s": t,
     "servo_estimado": estimated_deltas,
@@ -193,10 +201,10 @@ def read_ros2_bag(bag_path):
     "ganho_estimado": gain_est
     })
 
-    df.to_csv("dados_estimacao_tau.csv", index=False)
-    
-    np.savez("plot_data.npz", t=t, servo_cmd=delta_cmd_interp, servo_estimado=estimated_deltas, tau_estimado=tau_est, ganho_estimado=gain_est)
-    
+    df.to_csv(f"{rosbag_dir}/dados_estimacao_tau.csv", index=False)
+
+    np.savez(f"{rosbag_dir}/plot_data.npz", t=t, servo_cmd=delta_cmd_interp, servo_estimado=estimated_deltas, tau_estimado=tau_est, ganho_estimado=gain_est)
+
     # Arrays que queres guardar
     dados = {
         't': t,  # vetor de tempo
@@ -207,9 +215,8 @@ def read_ros2_bag(bag_path):
     }
 
     # Salvar num ficheiro .mat
-    savemat("dados_estimacao.mat", dados)
+    savemat(f"{rosbag_dir}/dados_estimacao.mat", dados)
 
-    
     # Visualizar
     plt.plot(t, delta_cmd_interp, '--', label='Comando (cmd_servo)')
     plt.plot(t, estimated_deltas, label='Servo medido')
@@ -224,7 +231,9 @@ def read_ros2_bag(bag_path):
     
 
 # Caminho para o arquivo rosbag2
-bag_path = '/home/desktop/Documents/rosbag/rosbag2_2025_07_21-10_55_15/rosbag2_2025_07_21-10_55_15_0.db3'
+#bag_path = '/home/desktop/Documents/rosbag/mpc_test_steering_07_22/bag_1m_s/rosbag2_2025_07_22-16_35_34_0.db3'
+#bag_path = '/home/desktop/Documents/rosbag/mpc_test_steering_07_22/bag_1.2m_s/rosbag2_2025_07_22-17_33_39_0.db3'
+bag_path = '/home/desktop/Documents/rosbag/mpc_test_steering_07_22/bag_1.5m_s/rosbag2_2025_07_22-18_02_29_0.db3'
 
 # Chamar a função para ler o rosbag2 e calcular tau
 read_ros2_bag(bag_path)

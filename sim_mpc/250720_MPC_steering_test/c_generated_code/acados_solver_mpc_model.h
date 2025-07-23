@@ -65,9 +65,9 @@
 #define MPC_MODEL_NY     6
 #define MPC_MODEL_NYN    4
 #define MPC_MODEL_N      10
-#define MPC_MODEL_NH     1
+#define MPC_MODEL_NH     0
 #define MPC_MODEL_NHN    0
-#define MPC_MODEL_NH0    1
+#define MPC_MODEL_NH0    0
 #define MPC_MODEL_NPHI0  0
 #define MPC_MODEL_NPHI   0
 #define MPC_MODEL_NPHIN  0
@@ -122,15 +122,7 @@ typedef struct mpc_model_solver_capsule
 
 
     // constraints
-    external_function_external_param_casadi *nl_constr_h_fun_jac;
-    external_function_external_param_casadi *nl_constr_h_fun;
 
-
-
-
-
-    external_function_external_param_casadi nl_constr_h_0_fun_jac;
-    external_function_external_param_casadi nl_constr_h_0_fun;
 
 
 

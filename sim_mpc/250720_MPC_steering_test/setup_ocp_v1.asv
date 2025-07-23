@@ -14,7 +14,7 @@ function solver = setup_ocp_v1(N, Ts, Q, R, delta_max, v_max)
     p = SX.sym('p', np);
 
 
-    model = car_model_servo_v3_tau(x,u,p);
+    model = car_model_servo_disc_v3_tau(x,u,p);
 
     %% === OCP setup ===
     ocp = AcadosOcp();
@@ -102,10 +102,10 @@ function solver = setup_ocp_v1(N, Ts, Q, R, delta_max, v_max)
 
     if (~isempty(ocp.model.f_expl_expr))
         ocp.solver_options.integrator_type = 'ERK';
-        disp("integrator_type = ERK")
+        print("integrator_type = 'ERK'")
     elseif (~isempty(ocp.model.disc_dyn_expr))
         ocp.solver_options.integrator_type = 'DISCRETE';
-        disp("integrator_type = DISCRETE")
+        print("integrator_type = DISCRETE'")
     else 
         disp("integrator_type Error");
         return

@@ -84,10 +84,6 @@ if(${BUILD_ACADOS_SOLVER_LIB} OR ${BUILD_ACADOS_OCP_SOLVER_LIB} OR ${BUILD_EXAMP
         mpc_model_cost/mpc_model_cost_y_fun_jac_ut_xt.c
         mpc_model_cost/mpc_model_cost_y_e_fun.c
         mpc_model_cost/mpc_model_cost_y_e_fun_jac_ut_xt.c
-        mpc_model_constraints/mpc_model_constr_h_0_fun.c
-        mpc_model_constraints/mpc_model_constr_h_0_fun_jac_uxt_zt.c
-        mpc_model_constraints/mpc_model_constr_h_fun.c
-        mpc_model_constraints/mpc_model_constr_h_fun_jac_uxt_zt.c
         acados_solver_mpc_model.c
     )
     add_library(${OCP_OBJ} OBJECT ${OCP_SRC})

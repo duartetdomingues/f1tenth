@@ -1,4 +1,4 @@
-function [model] = car_model_servo_disc_v3_tau(x,u,p)
+function [model] = car_model_servo_disc_v4_tau(x,u,p)
 
 import casadi.*
 
@@ -10,7 +10,7 @@ disp(['Model Name: ' model_name]);
 
 % Parâmetros fixos
 L = 0.35; % Distância entre eixos
-tau  = 0.1148 ;%0.1148; % 0.164
+tau  = 0.11 ;%0.1148; % 0.164
 
 
 % Estados
@@ -37,15 +37,15 @@ x_next = [ ...
     delta_next;                           % [4]
     v_in ];      
 
-%ddelta_expr = (delta_cmd - delta) / Ts;  % ddelta = (delta_cmd - delta) / Ts
+ddelta_expr = (delta_cmd - delta) / Ts;  % ddelta = (delta_cmd - delta) / Ts
 
 model.x = x;
 model.u = u;
 model.p = p;  % ou [] se não usares p
 model.disc_dyn_expr = x_next;  % <------ usa esta dinâmica discreta!
 
-%model.con_h_expr = ddelta_expr;
-%model.con_h_expr_0 = ddelta_expr;
+model.con_h_expr = ddelta_expr;
+model.con_h_expr_0 = ddelta_expr;
 
 
 model.name = 'mpc_model';

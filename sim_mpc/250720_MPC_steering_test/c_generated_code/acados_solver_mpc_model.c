@@ -42,7 +42,6 @@
 #include "mpc_model_model/mpc_model_model.h"
 
 
-#include "mpc_model_constraints/mpc_model_constraints.h"
 #include "mpc_model_cost/mpc_model_cost.h"
 
 
@@ -341,18 +340,6 @@ void mpc_model_acados_create_setup_functions(mpc_model_solver_capsule* capsule)
 
 
     ext_fun_opts.external_workspace = true;
-    MAP_CASADI_FNC(nl_constr_h_0_fun_jac, mpc_model_constr_h_0_fun_jac_uxt_zt);
-    MAP_CASADI_FNC(nl_constr_h_0_fun, mpc_model_constr_h_0_fun);
-    // constraints.constr_type == "BGH" and dims.nh > 0
-    capsule->nl_constr_h_fun_jac = (external_function_external_param_casadi *) malloc(sizeof(external_function_external_param_casadi)*(N-1));
-    for (int i = 0; i < N-1; i++) {
-        MAP_CASADI_FNC(nl_constr_h_fun_jac[i], mpc_model_constr_h_fun_jac_uxt_zt);
-    }
-    capsule->nl_constr_h_fun = (external_function_external_param_casadi *) malloc(sizeof(external_function_external_param_casadi)*(N-1));
-    for (int i = 0; i < N-1; i++) {
-        MAP_CASADI_FNC(nl_constr_h_fun[i], mpc_model_constr_h_fun);
-    }
-
     // nonlinear least squares function
     MAP_CASADI_FNC(cost_y_0_fun, mpc_model_cost_y_0_fun);
     MAP_CASADI_FNC(cost_y_0_fun_jac_ut_xt, mpc_model_cost_y_0_fun_jac_ut_xt);
@@ -582,21 +569,6 @@ void mpc_model_acados_setup_nlp_in(mpc_model_solver_capsule* capsule, const int 
 
 
 
-    // set up nonlinear constraints for last stage
-    double* luh_0 = calloc(2*NH0, sizeof(double));
-    double* lh_0 = luh_0;
-    double* uh_0 = luh_0 + NH0;
-    lh_0[0] = -5.236;
-    uh_0[0] = 5.236;
-
-    ocp_nlp_constraints_model_set_external_param_fun(nlp_config, nlp_dims, nlp_in, 0, "nl_constr_h_fun_jac", &capsule->nl_constr_h_0_fun_jac);
-    ocp_nlp_constraints_model_set_external_param_fun(nlp_config, nlp_dims, nlp_in, 0, "nl_constr_h_fun", &capsule->nl_constr_h_0_fun);
-    
-    ocp_nlp_constraints_model_set(nlp_config, nlp_dims, nlp_in, nlp_out, 0, "lh", lh_0);
-    ocp_nlp_constraints_model_set(nlp_config, nlp_dims, nlp_in, nlp_out, 0, "uh", uh_0);
-    
-    
-    free(luh_0);
 
 
 
@@ -634,26 +606,6 @@ void mpc_model_acados_setup_nlp_in(mpc_model_solver_capsule* capsule, const int 
 
 
 
-    // set up nonlinear constraints for stage 1 to N-1
-    double* luh = calloc(2*NH, sizeof(double));
-    double* lh = luh;
-    double* uh = luh + NH;
-    lh[0] = -5.236;
-    uh[0] = 5.236;
-
-    for (int i = 1; i < N; i++)
-    {
-        ocp_nlp_constraints_model_set_external_param_fun(nlp_config, nlp_dims, nlp_in, i, "nl_constr_h_fun_jac",
-                                      &capsule->nl_constr_h_fun_jac[i-1]);
-        ocp_nlp_constraints_model_set_external_param_fun(nlp_config, nlp_dims, nlp_in, i, "nl_constr_h_fun",
-                                      &capsule->nl_constr_h_fun[i-1]);
-        
-        ocp_nlp_constraints_model_set(nlp_config, nlp_dims, nlp_in, nlp_out, i, "lh", lh);
-        ocp_nlp_constraints_model_set(nlp_config, nlp_dims, nlp_in, nlp_out, i, "uh", uh);
-        
-        
-    }
-    free(luh);
 
 
 
@@ -1049,15 +1001,6 @@ int mpc_model_acados_free(mpc_model_solver_capsule* capsule)
     external_function_external_param_casadi_free(&capsule->cost_y_e_fun_jac_ut_xt);
 
     // constraints
-    for (int i = 0; i < N-1; i++)
-    {
-        external_function_external_param_casadi_free(&capsule->nl_constr_h_fun_jac[i]);
-        external_function_external_param_casadi_free(&capsule->nl_constr_h_fun[i]);
-    }
-    free(capsule->nl_constr_h_fun_jac);
-    free(capsule->nl_constr_h_fun);
-    external_function_external_param_casadi_free(&capsule->nl_constr_h_0_fun_jac);
-    external_function_external_param_casadi_free(&capsule->nl_constr_h_0_fun);
 
 
 

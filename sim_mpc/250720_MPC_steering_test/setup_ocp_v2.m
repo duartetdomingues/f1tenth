@@ -14,7 +14,7 @@ function solver = setup_ocp_v2(N, Ts, Q, R, delta_max, v_max)
     p = SX.sym('p', np);
 
 
-    model = car_model_servo_v4_tau(x,u,p);
+    model = car_model_servo_disc_v3_tau(x,u,p);
 
     %% === OCP setup ===
     ocp = AcadosOcp();

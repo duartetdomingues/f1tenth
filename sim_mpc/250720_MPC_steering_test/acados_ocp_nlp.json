@@ -56,12 +56,8 @@
 		"lbx_e":[],
 		"lg":[],
 		"lg_e":[],
-		"lh":[
-			-5.236
-		],
-		"lh_0":[
-			-5.236
-		],
+		"lh":[],
+		"lh_0":[],
 		"lh_e":[],
 		"lphi":[],
 		"lphi_0":[],
@@ -128,12 +124,8 @@
 		"ubx_e":[],
 		"ug":[],
 		"ug_e":[],
-		"uh":[
-			5.236
-		],
-		"uh_0":[
-			5.236
-		],
+		"uh":[],
+		"uh_0":[],
 		"uh_e":[],
 		"uphi":[],
 		"uphi_0":[],
@@ -385,8 +377,8 @@
 		"nbxe_0":5,
 		"ng":0,
 		"ng_e":0,
-		"nh":1,
-		"nh_0":1,
+		"nh":0,
+		"nh_0":0,
 		"nh_e":0,
 		"np":1,
 		"np_global":0,
@@ -429,11 +421,7 @@
 		"mpc_model_cost/mpc_model_cost_y_fun.c",
 		"mpc_model_cost/mpc_model_cost_y_fun_jac_ut_xt.c",
 		"mpc_model_cost/mpc_model_cost_y_e_fun.c",
-		"mpc_model_cost/mpc_model_cost_y_e_fun_jac_ut_xt.c",
-		"mpc_model_constraints/mpc_model_constr_h_0_fun.c",
-		"mpc_model_constraints/mpc_model_constr_h_0_fun_jac_uxt_zt.c",
-		"mpc_model_constraints/mpc_model_constr_h_fun.c",
-		"mpc_model_constraints/mpc_model_constr_h_fun_jac_uxt_zt.c"
+		"mpc_model_cost/mpc_model_cost_y_e_fun_jac_ut_xt.c"
 	],
 	"json_file":"acados_ocp_nlp.json",
 	"model":{

@@ -50,10 +50,6 @@ OCP_SRC+= mpc_model_cost/mpc_model_cost_y_fun.c
 OCP_SRC+= mpc_model_cost/mpc_model_cost_y_fun_jac_ut_xt.c
 OCP_SRC+= mpc_model_cost/mpc_model_cost_y_e_fun.c
 OCP_SRC+= mpc_model_cost/mpc_model_cost_y_e_fun_jac_ut_xt.c
-OCP_SRC+= mpc_model_constraints/mpc_model_constr_h_0_fun.c
-OCP_SRC+= mpc_model_constraints/mpc_model_constr_h_0_fun_jac_uxt_zt.c
-OCP_SRC+= mpc_model_constraints/mpc_model_constr_h_fun.c
-OCP_SRC+= mpc_model_constraints/mpc_model_constr_h_fun_jac_uxt_zt.c
 
 OCP_SRC+= acados_solver_mpc_model.c
 
