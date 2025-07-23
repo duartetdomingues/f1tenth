@@ -15,32 +15,34 @@ N = 10; % Horizonte do MPC
 L = 0.35; % Distância entre eixos
 servo_gain=-0.840; % Ganho do servo (rad/unidade)
 
+servo_max_rate = 5.2360/10;
+
 
 servo_max=0.4; % Ângulo máximo do servo
-v_max = 1;        % Velocidade máxima (m/s)
+v_max = 2.5;        % Velocidade máxima (m/s)
 
 delta_max = abs(servo_max/servo_gain); % Ângulo máximo de direção (radianos)
 
 %% Upload Traj
-traj_file="pts/centerline2_map_2025-07-15_14-19-22.csv";
-traj_dir="../../traj";
-
-% Caminho para o ficheiro
-traj_file = fullfile(traj_dir,traj_file);
-
-% Verificar se o ficheiro existe
-if ~isfile(traj_file)
-    error('Ficheiro não encontrado: %s', traj_file);
-end
-
-% Carregar o CSV
-data = readmatrix(traj_file);  % ou: csvread(traj_file); para versões mais antigas
-
-% Verificar conteúdo
-x_traj=data(:,1);
-y_traj=data(:,2);
-psi_traj=data(:,3);
-v_ref=data(:,4);
+% traj_file="pts/centerline2_map_2025-07-15_14-19-22.csv";
+% traj_dir="../../traj";
+% 
+% % Caminho para o ficheiro
+% traj_file = fullfile(traj_dir,traj_file);
+% 
+% % Verificar se o ficheiro existe
+% if ~isfile(traj_file)
+%     error('Ficheiro não encontrado: %s', traj_file);
+% end
+% 
+% % Carregar o CSV
+% data = readmatrix(traj_file);  % ou: csvread(traj_file); para versões mais antigas
+% 
+% % Verificar conteúdo
+% x_traj=data(:,1);
+% y_traj=data(:,2);
+% psi_traj=data(:,3);
+% v_ref=data(:,4);
 
 
 
@@ -53,7 +55,7 @@ v_ref=data(:,4);
 
 
 % Parâmetros do MPC
-Q = diag([10, 10, 0, 1, 1]);  % [x, y, psi, theta, v]
+Q = diag([10, 10, 10, 1, 1]);  % [x, y, psi, theta, v]
 R = diag([0.1, 0.1]);       % Ponderação dos controles
 
 check_acados_requirements()
@@ -136,7 +138,10 @@ ylabel('Velocidade [m/s]');
 xlabel('Step');
 t_exec=0;
 
-solver.set('p', Ts)
+
+%solver.set('p',[Ts; servo_max_rate]);
+
+solver.set('p',Ts)
 
 mpc_sim_u=[];
 mpc_sim_x=[];
@@ -299,7 +304,7 @@ disp(max_diff_u)
 % ---- Simulação da Dinâmica ----
 function x_sim = simulate_dynamics(x, u, Ts, L)
 
-servo_max_rate = 5.2360; % rad/s (60° em 0.20s)
+servo_max_rate = 5.2360/2; % rad/s (60° em 0.20s)
 
 delta_cmd = u(1);
 v = u(2);

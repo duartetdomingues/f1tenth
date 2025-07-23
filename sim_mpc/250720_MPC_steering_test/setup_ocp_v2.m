@@ -6,7 +6,7 @@ function solver = setup_ocp_v2(N, Ts, Q, R, delta_max, v_max)
 
     nx = 5;  % Estados: [x, y, psi, theta, v]
     nu = 2;  % Controlo: [delta, v]
-    np = 1;  % Parâmetros: [Ts]
+    np = 1;  % Parâmetros: [Ts, Servo_max_rate(rad/s)]
     
     
     x = SX.sym('x', nx);
@@ -14,7 +14,7 @@ function solver = setup_ocp_v2(N, Ts, Q, R, delta_max, v_max)
     p = SX.sym('p', np);
 
 
-    model = car_model_servo_disc(x,u,p);
+    model = car_model_servo_v4_tau(x,u,p);
 
     %% === OCP setup ===
     ocp = AcadosOcp();
@@ -80,17 +80,18 @@ function solver = setup_ocp_v2(N, Ts, Q, R, delta_max, v_max)
 
 
     % Constraints (caixas nas entradas)
-    % ocp.constraints.lbu = [-delta_max; 0];
-    % ocp.constraints.ubu = [ delta_max;  v_max];
-    % ocp.constraints.idxbu = 0:nu-1;
+    ocp.constraints.lbu = [-delta_max; 0];
+    ocp.constraints.ubu = [ delta_max;  v_max];
+    ocp.constraints.idxbu = 0:nu-1;
 
 
-    % servo_max_rate = 0.1;       % velocidade angular máxima (rad/s)
-    % 
-    % ocp.constraints.lh = -servo_max_rate;
-    % ocp.constraints.uh =  servo_max_rate;
-    % ocp.constraints.lh_0 = -servo_max_rate;
-    % ocp.constraints.uh_0 =  servo_max_rate;
+    %servo_max_rate = p(2);       % velocidade angular máxima (rad/s)
+    servo_max_rate = 5.2360;
+
+    ocp.constraints.lh = -servo_max_rate;
+    ocp.constraints.uh =  servo_max_rate;
+    ocp.constraints.lh_0 = -servo_max_rate;
+    ocp.constraints.uh_0 =  servo_max_rate;
 
     % Estado inicial (a definir no runtime)
     ocp.constraints.x0 = zeros(nx,1);
@@ -98,7 +99,16 @@ function solver = setup_ocp_v2(N, Ts, Q, R, delta_max, v_max)
     %% === Opções do solver ===
     ocp.solver_options.qp_solver = 'FULL_CONDENSING_HPIPM';
     ocp.solver_options.hessian_approx = 'GAUSS_NEWTON';
-    ocp.solver_options.integrator_type = 'DISCRETE';
+
+    if (~isempty(ocp.model.f_expl_expr))
+        ocp.solver_options.integrator_type = 'ERK';
+    elseif (~isempty(ocp.model.disc_dyn_expr))
+        ocp.solver_options.integrator_type = 'DISCRETE';
+    else 
+        disp("integrator_type Error");
+        return
+    end
+
     ocp.solver_options.nlp_solver_type = 'SQP'; % ou 'SQP_RTI' para mais rápido
     ocp.solver_options.print_level = 1;
 

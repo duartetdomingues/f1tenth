@@ -24,6 +24,8 @@ vel     = x(5);
 delta_cmd = u(1);
 v_in      = u(2);
 
+Ts=p(1);
+
 
 % % Derivadas dos estados
 % x_dot = MX.sym('x_dot');
@@ -34,14 +36,14 @@ v_in      = u(2);
 
 % Saturação da derivada de delta
 
-ddelta_request = (delta_cmd - delta) / 0.1;
+
+servo_max_rate = 5.2360/10;       % velocidade angular máxima (rad/s)
+ddelta_request = (delta_cmd - delta) / Ts;
+ddelta = if_else(ddelta_request > servo_max_rate, servo_max_rate ,if_else(ddelta_request < -servo_max_rate, -servo_max_rate, ddelta_request));
 
 
-%ddelta = if_else(ddelta_request > servo_max_rate, servo_max_rate ,if_else(ddelta_request < -servo_max_rate, -servo_max_rate, ddelta_request));
 
-
-
-dvel = (v_in - vel)/p(1);
+dvel = (v_in - vel)/Ts;
 
 %delta_new= delta + ddelta*p(1);
 delta_new=delta;
@@ -52,17 +54,17 @@ vel_avg = (v_in + vel)/2;
 
 % Dinâmica explícita
 f_expl = [
-    v_in * cos(psi);          % dx/dt
-    v_in * sin(psi);          % dy/dt
-    (vel_avg / L) * tan(delta_new);  % dpsi/dt
-    0;                    % ddelta/dt
+    vel * cos(psi);          % dx/dt
+    vel * sin(psi);          % dy/dt
+    (vel / L) * tan(delta);  % dpsi/dt
+    ddelta_request;                    % ddelta/dt
     dvel
 ];
 
 delta = delta_cmd;
 
 
-ddelta_expr = (delta_cmd - delta) / 0.1;  % ddelta = (delta_cmd - delta) / Ts
+ddelta_expr = (delta_cmd - delta) / Ts;  % ddelta = (delta_cmd - delta) / Ts
     
 % Dinâmica implícita
 %f_impl = f_expl - xdot;
@@ -74,8 +76,8 @@ model.u = u;
 model.p = p;
 model.f_expl_expr = f_expl;
 
-% model.con_h_expr = ddelta_expr;
-% model.con_h_expr_0 = ddelta_expr;
+model.con_h_expr = ddelta_expr;
+model.con_h_expr_0 = ddelta_expr;
 
 %model.f_impl_expr = f_impl;
 model.name = 'mpc_model';
