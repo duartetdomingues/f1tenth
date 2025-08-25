@@ -10,8 +10,12 @@
 		"constr_type_0":"BGH",
 		"constr_type_e":"BGH",
 		"has_x0":true,
-		"idxbu":[],
+		"idxbu":[
+			0,
+			1
+		],
 		"idxbx":[
+			2,
 			6,
 			7
 		],
@@ -25,7 +29,11 @@
 			6,
 			7
 		],
-		"idxbx_e":[],
+		"idxbx_e":[
+			2,
+			6,
+			7
+		],
 		"idxbxe_0":[
 			0,
 			1,
@@ -47,22 +55,30 @@
 		"idxsphi":[],
 		"idxsphi_0":[],
 		"idxsphi_e":[],
-		"lbu":[],
+		"lbu":[
+			-0.5236,
+			-0.1
+		],
 		"lbx":[
+			-1.570796326794897,
 			-0.4,
-			-0.3
+			0
 		],
 		"lbx_0":[
-			0.001,
-			0.001,
-			0.001,
-			0.001,
-			0.001,
-			0.001,
-			0.001,
-			0.001
+			0.1,
+			0.1,
+			0.1,
+			0.1,
+			0.1,
+			0.1,
+			0.1,
+			0.1
 		],
-		"lbx_e":[],
+		"lbx_e":[
+			-1.570796326794897,
+			-0.4,
+			0
+		],
 		"lg":[],
 		"lg_e":[],
 		"lh":[],
@@ -118,22 +134,30 @@
 			"_ArraySize_":[0,1],
 			"_ArrayData_":[]
 		},
-		"ubu":[],
+		"ubu":[
+			0.5236,
+			0.1
+		],
 		"ubx":[
+			1.570796326794897,
 			0.4,
 			0.3
 		],
 		"ubx_0":[
-			0.001,
-			0.001,
-			0.001,
-			0.001,
-			0.001,
-			0.001,
-			0.001,
-			0.001
+			0.1,
+			0.1,
+			0.1,
+			0.1,
+			0.1,
+			0.1,
+			0.1,
+			0.1
 		],
-		"ubx_e":[],
+		"ubx_e":[
+			1.570796326794897,
+			0.4,
+			0.3
+		],
 		"ug":[],
 		"ug_e":[],
 		"uh":[],
@@ -240,10 +264,10 @@
 		"gnsf_nz1":0,
 		"gnsf_nz2":0,
 		"n_global_data":0,
-		"nbu":0,
-		"nbx":2,
+		"nbu":2,
+		"nbx":3,
 		"nbx_0":8,
-		"nbx_e":0,
+		"nbx_e":3,
 		"nbxe_0":8,
 		"ng":0,
 		"ng_e":0,
@@ -388,17 +412,17 @@
 		"nlp_qp_tol_safety_factor":0.1,
 		"nlp_qp_tol_strategy":"FIXED_QP_TOL",
 		"nlp_solver_ext_qp_res":0,
-		"nlp_solver_max_iter":100,
+		"nlp_solver_max_iter":200,
 		"nlp_solver_step_length":[],
 		"nlp_solver_tol_comp":1e-06,
 		"nlp_solver_tol_eq":1e-06,
 		"nlp_solver_tol_ineq":1e-06,
 		"nlp_solver_tol_min_step_norm":0,
 		"nlp_solver_tol_stat":1e-06,
-		"nlp_solver_type":"SQP",
+		"nlp_solver_type":"SQP_RTI",
 		"nlp_solver_warm_start_first_qp":false,
 		"nlp_solver_warm_start_first_qp_from_nlp":false,
-		"print_level":4,
+		"print_level":3,
 		"qp_solver":"PARTIAL_CONDENSING_HPIPM",
 		"qp_solver_cond_N":10,
 		"qp_solver_cond_block_size":[],
@@ -407,10 +431,10 @@
 		"qp_solver_mu0":0,
 		"qp_solver_ric_alg":1,
 		"qp_solver_t0_init":2,
-		"qp_solver_tol_comp":[],
-		"qp_solver_tol_eq":[],
-		"qp_solver_tol_ineq":[],
-		"qp_solver_tol_stat":[],
+		"qp_solver_tol_comp":0.01,
+		"qp_solver_tol_eq":0.01,
+		"qp_solver_tol_ineq":0.01,
+		"qp_solver_tol_stat":0.01,
 		"qp_solver_warm_start":[],
 		"qpscaling_lb_norm_inf_grad_obj":0.0001,
 		"qpscaling_scale_constraints":"NO_CONSTRAINT_SCALING",
@@ -453,6 +477,18 @@
 		"sim_method_newton_iter":3,
 		"sim_method_newton_tol":0,
 		"sim_method_num_stages":[
+			4,
+			4,
+			4,
+			4,
+			4,
+			4,
+			4,
+			4,
+			4,
+			4
+		],
+		"sim_method_num_steps":[
 			3,
 			3,
 			3,
@@ -463,18 +499,6 @@
 			3,
 			3,
 			3
-		],
-		"sim_method_num_steps":[
-			2,
-			2,
-			2,
-			2,
-			2,
-			2,
-			2,
-			2,
-			2,
-			2
 		],
 		"solution_sens_qp_t_lam_min":1e-09,
 		"store_iterates":false,

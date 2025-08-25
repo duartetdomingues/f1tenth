@@ -2,11 +2,38 @@ function [x_next,log] = car_model_curv(Ts, track,x,u)
 
 import casadi.*
 
-%filename = params()
+%% LUTs
 
-kappa_lut =interpolant('kappa_lut','linear',{track.s_traj},track.kappa_traj);
-n_l_lut =interpolant('n_l_lut','linear',{track.s_traj},track.nl_traj);
-n_r_lut =interpolant('n_r_lut','linear',{track.s_traj},track.nr_traj);
+s_traj = track.s_traj;
+kappa_traj= track.kappa_traj;
+nl_traj =track.nl_traj ;
+nr_traj =track.nr_traj ;
+
+
+% acrescentar no fim: s0(end) + s0(2:end)
+% s_traj = [s_traj(1:end-1) - s_traj(end) ; s_traj ; s_traj(end) + s_traj(2:end)];
+% 
+% kappa_traj = [ kappa_traj(1:end-1); kappa_traj ;  kappa_traj(2:end)];
+% 
+% nl_traj = [ nl_traj(1:end-1) ; nl_traj; nl_traj(2:end) ];
+% 
+% nr_traj = [ nr_traj(1:end-1); nr_traj ; nr_traj(2:end)];
+
+s_traj = [s_traj ; s_traj(end) + s_traj(2:end)];
+
+kappa_traj = [kappa_traj ;  kappa_traj(2:end)];
+
+nl_traj = [nl_traj; nl_traj(2:end) ];
+
+nr_traj = [nr_traj ; nr_traj(2:end)];
+
+kappa_lut =interpolant('kappa_lut_l','linear',{s_traj},kappa_traj);
+n_l_lut =interpolant('n_l_lut_l','linear',{s_traj},nl_traj);
+n_r_lut =interpolant('n_r_lut_l','linear',{s_traj},nr_traj);
+
+% kappa_lut =interpolant('kappa_lut','linear',{track.s_traj},track.kappa_traj);
+% n_l_lut =interpolant('n_l_lut','linear',{track.s_traj},track.nl_traj);
+% n_r_lut =interpolant('n_r_lut','linear',{track.s_traj},track.nr_traj);
 
 
 

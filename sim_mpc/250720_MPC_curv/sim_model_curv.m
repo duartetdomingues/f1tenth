@@ -82,7 +82,7 @@ import casadi.*
 x = [0;0;0;0;0;0;0;0]; % [s; n; µ; vx; vy; r; δ; T]
 history = x';
 history_xy=[0,0];
-u0=[0;1]*0.1;
+u0=[-1;1]*0.1;
 u_history=u0';
 
 T_s_total = 5; % Tempo de sim

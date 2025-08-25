@@ -50,7 +50,8 @@ track.nr_traj =ones(length(track.kappa_traj),1);
  % axis equa
 
 
-
+% Parâmetros do MPC
+R = diag([0.5, 1.5]);       % Ponderação dos controles
 
 check_acados_requirements()
 lib_path = fullfile(pwd, 'c_generated_code/');
@@ -75,13 +76,26 @@ addpath(genpath(pwd))
 % ------ Setup do ACADOS ------
 import casadi.*
 
+if(compile_solver || ~exist('solver', 'var') )
+    clear solver
+    solver = setup_ocp_mpc_curv_v2(N, Ds, R, track);  % <- Verifica se tens este ficheiro
+    %save('solver_data.mat', 'solver');
+else 
+    % solver=acados_mex_create_mpc_model();
+    % if isfile('solver_data.mat')
+    %     loaded = load('solver_data.mat');
+    %     solver = loaded.solver;
+    % else
+    %     error('Solver ainda não foi gerado! Executa primeiro com compile_solver = true');
+    % end
+end
 
 % ------------------------------
 
 % Estado inicial
-x = ones(8,1)*0.001; % [s; n; µ; vx; vy; r; δ; T]
+x = ones(5,1)*0.1; % [s; n; µ; vx; vy; r; δ; T]
 history = x';
-u0=[0;0]*0.1;
+u0=[1;1]*0.1;
 u_history=u0';
 
 D_s_total = 20; % Tempo de sim
@@ -94,6 +108,8 @@ plot(track.x_traj, track.y_traj, 'r--', 'LineWidth', 1.5);
 heading_arrow = quiver(0,0, cos(0), sin(0), 0.5, 'b', 'LineWidth', 2, 'MaxHeadSize', 2);
 horizon_line = plot(nan, nan, 'g.-', 'LineWidth', 1.5); % linha do horizonte    
 traj_ref = plot(track.x_traj, track.y_traj, 'y--', 'LineWidth', 1.5);
+ref_point = quiver(0,0, cos(0), sin(0), 0.5, 'o', 'LineWidth', 2, 'MaxHeadSize', 2);
+
 xlabel('x [m]'); ylabel('y [m]');
 title('Sim MPC');
 legend('Trajetória de referência', 'Trajetória do veículo');
@@ -133,23 +149,15 @@ ylabel('Yaw rate [rad/s]');
 xlabel('Step');
 
 figure;
-sgtitle('Inputs/States');
-subplot(2,2,1);
+sgtitle('Inputs');
+subplot(2,1,1);
 p_u1=plot(0, 0, 'b-', 'LineWidth', 2);
 xlabel('Step');
-ylabel('Delta U [rad]');
-subplot(2,2,2);
+ylabel('Delta [rad]');
+subplot(2,1,2);
 p_u2=plot(0, 0, 'b-', 'LineWidth', 2);
 xlabel('Step');
-ylabel('Throttle U');
-subplot(2,2,3);
-p_d=plot(0, 0, 'b-', 'LineWidth', 2);
-xlabel('Step');
-ylabel('Delta X[rad]');
-subplot(2,2,4);
-p_t=plot(0, 0, 'b-', 'LineWidth', 2);
-xlabel('Step');
-ylabel('Throttle X');
+ylabel('Throttle');
 
 t_exec=0;
 
@@ -205,46 +213,58 @@ for t_idx = 1:D_s_total/Ds-1
     %solver.set(N, 'p', [x_ref_step(end); y_ref_step(end); v_ref]);
 
 
+    solver.set('constr_lbx', x, 0);  % Estado inicial lower bound no estágio 0
+    solver.set('constr_ubx', x, 0);
+    tic()
+    solver.solve()
+    t_exec =[t_exec,toc]; 
+    status =  solver.get('status');
+    if status ~= 0  
+        warning(['acados ocp solver failed with status ',num2str(status)]);
+        solver.print('stat')
+        break
     
-    
+    else
+        disp(["Sucess Solved"]);
+    end
+    solver.print('stat')
 
+    u = solver.get('u', 0);
 
-    u = u0;
-
-    % 
-    % mpc_sim_u{t_idx}= solver.get('u');
-    % mpc_sim_x{t_idx}= solver.get('x');
+    mpc_sim_u{t_idx}= solver.get('u');
+    mpc_sim_x{t_idx}= solver.get('x');
 
     
     u_history=[u_history; u'];
 
     % Atualiza estado com o modelo da bicicleta
-    x = full(car_model_curv(Ds, track,x,u));
+    x = solver.get('x', 1);
 
     history = [history; x'];
 
     % Pose
-    [X,Y,psi] = local_to_global_pose(track,x);
+    [X,Y,psi, X_s, Y_s, psi_s] = local_to_global_pose(track,x);
     history_xy = [history_xy;X,Y];
 
     % Update Horizonte
-    % X_h = zeros(1, N);
-    % Y_h = zeros(1, N);
-    % for k = 1:N
-    %     x_pred = solver.get('x', k);   % estado predito no passo k;
-    %     if k<N
-    %         u_pred = solver.get('u', k);   % u predito no passo k;
-    %     end
-    % 
-    %     history_pred{t_idx}(k,:)=[x_pred; u_pred];
-    %     [xg, yg, ~] = local_to_global_pose(track, x_pred);
-    %     X_h(k) = xg;
-    %     Y_h(k) = yg;
-    % end
+    X_h = zeros(1, N);
+    Y_h = zeros(1, N);
+    for k = 1:N
+        x_pred = solver.get('x', k);   % estado predito no passo k;
+        if k<N
+            u_pred = solver.get('u', k);   % u predito no passo k;
+        end
+
+        history_pred{t_idx}(k,:)=[x_pred; u_pred];
+        [xg, yg , ~] = local_to_global_pose(track, x_pred);
+        X_h(k) = xg;
+        Y_h(k) = yg;
+    end
 
     %set(traj, 'XData', history(:,1), 'YData', history(:,2));
     set(heading_arrow,'XData', X, 'YData', Y ,'UData', cos(psi), 'VData', sin(psi));
-    % set(horizon_line, 'XData', X_h, 'YData', Y_h);
+    set(horizon_line, 'XData', X_h, 'YData', Y_h);
+    set(ref_point,'XData', X_s, 'YData', Y_s , 'UData', cos(psi_s), 'VData', sin(psi_s));
 
     drawnow;
     % set(traj_ref, 'XData', x_ref_step , 'YData', y_ref_step);
@@ -255,8 +275,6 @@ for t_idx = 1:D_s_total/Ds-1
     set(p_vx , 'XData', 0:t_idx, 'YData', history(:,4));
     set(p_vy , 'XData', 0:t_idx, 'YData', history(:,5));
     set(p_r , 'XData', 0:t_idx, 'YData',history(:,6));
-    set(p_d, 'XData', 0:t_idx, 'YData',history(:,7));
-    set(p_u2, 'XData', 0:t_idx, 'YData',history(:,8));
     set(p_u1, 'XData', 0:t_idx, 'YData',history(:,7));
     set(p_u2, 'XData', 0:t_idx, 'YData',history(:,8));
     drawnow;
@@ -311,26 +329,20 @@ plot(history(:,2))
 % 
 % disp(max_diff_u)
 
-function [x,y,psi]=local_to_global_pose (track,x)
+function [x,y,psi ,X_s, Y_s,theta_s]=local_to_global_pose (track,x)
 
     s_val=x(1);
     n_val = x(2);
     mu_val= x(3);
-    
-    import casadi.*
 
-    x_lut =interpolant('kappa_lut','linear',{track.s_traj},track.x_traj);
-    y_lut =interpolant('n_l_lut','linear',{track.s_traj},track.y_traj);
+    X_s = interp1(track.s_traj, track.x_traj, s_val, 'linear', 'extrap');
+    Y_s = interp1(track.s_traj, track.y_traj, s_val, 'linear', 'extrap');
     theta_traj = cumtrapz(track.s_traj, track.kappa_traj);  % integração de kappa para obter theta
-    theta_lut =interpolant('n_r_lut','linear',{track.s_traj},theta_traj);
-
-    X_s = x_lut(s_val);
-    Y_s = y_lut(s_val);
-    theta_s = theta_lut(s_val);
+    theta_s = interp1(track.s_traj, theta_traj, s_val, 'linear', 'extrap');
     
-    x = full(X_s - n_val * sin(theta_s));
-    y = full(Y_s + n_val * cos(theta_s));
-    psi = full(theta_s + mu_val);
+    x = X_s - n_val * sin(theta_s);
+    y = Y_s + n_val * cos(theta_s);
+    psi = theta_s + mu_val;
 end
 
 

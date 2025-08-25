@@ -41,9 +41,9 @@
 #define MPC_MODEL_NU     2
 #define MPC_MODEL_NP     0
 #define MPC_MODEL_NP_GLOBAL     0
-#define MPC_MODEL_NBX    2
+#define MPC_MODEL_NBX    3
 #define MPC_MODEL_NBX0   8
-#define MPC_MODEL_NBU    0
+#define MPC_MODEL_NBU    2
 #define MPC_MODEL_NSBX   0
 #define MPC_MODEL_NSBU   0
 #define MPC_MODEL_NSH    0
@@ -59,7 +59,7 @@
 #define MPC_MODEL_NS0    0
 #define MPC_MODEL_NSN    0
 #define MPC_MODEL_NG     0
-#define MPC_MODEL_NBXN   0
+#define MPC_MODEL_NBXN   3
 #define MPC_MODEL_NGN    0
 #define MPC_MODEL_NY0    0
 #define MPC_MODEL_NY     0

@@ -278,19 +278,19 @@ classdef mpc_model_mex_solver < handle
 
             if strcmp(field, 'stat')
                 stat = obj.get('stat');
-                fprintf('\niter\tres_stat\tres_eq\t\tres_ineq\tres_comp\tqp_stat\tqp_iter\talpha');
-                if size(stat,2)>8
+                fprintf('\niter\tqp_status\tqp_iter');
+                if size(stat,2)>3
                     fprintf('\tqp_res_stat\tqp_res_eq\tqp_res_ineq\tqp_res_comp');
                 end
                 fprintf('\n');
                 for jj=1:size(stat,1)
-                    fprintf('%d\t%e\t%e\t%e\t%e\t%d\t%d\t%e', stat(jj,1), stat(jj,2), stat(jj,3), stat(jj,4), stat(jj,5), stat(jj,6), stat(jj,7), stat(jj, 8));
-                    if size(stat,2)>8
-                        fprintf('\t%e\t%e\t%e\t%e', stat(jj,9), stat(jj,10), stat(jj,11), stat(jj,12));
+                    fprintf('%d\t%d\t\t%d', stat(jj,1), stat(jj,2), stat(jj,3));
+                    if size(stat,2)>3
+                        fprintf('\t%e\t%e\t%e\t%e', stat(jj,4), stat(jj,5), stat(jj,6), stat(jj,7));
                     end
                     fprintf('\n');
                 end
-                fprintf('\n');
+                
 
             else
                 fprintf('unsupported field in function print of acados_ocp.print, got %s', field);

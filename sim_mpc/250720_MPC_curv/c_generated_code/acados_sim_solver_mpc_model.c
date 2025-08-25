@@ -138,9 +138,9 @@ int mpc_model_acados_sim_create(mpc_model_sim_solver_capsule * capsule)
     sim_opts_set(mpc_model_sim_config, mpc_model_sim_opts, "collocation_type", &collocation_type);
 
  
-    tmp_int = 3;
+    tmp_int = 4;
     sim_opts_set(mpc_model_sim_config, mpc_model_sim_opts, "num_stages", &tmp_int);
-    tmp_int = 2;
+    tmp_int = 3;
     sim_opts_set(mpc_model_sim_config, mpc_model_sim_opts, "num_steps", &tmp_int);
     tmp_bool = 0;
     sim_opts_set(mpc_model_sim_config, mpc_model_sim_opts, "jac_reuse", &tmp_bool);

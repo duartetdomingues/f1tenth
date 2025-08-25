@@ -1,4 +1,4 @@
-function [model , constraints] = car_model_mpc_curv(Ds, R, track)
+function [model , constraints, model_var] = car_model_mpc_curv(Ts, R, track)
 
 import casadi.*
 
@@ -8,42 +8,64 @@ model_name = 'Car_model_v1';
 
 disp(['Model Name: ' model_name]);
 
-nx = 8;  % Estados: [s; n; µ; vx; vy; r; δ; T]
-nu = 2;  % Controlo: [delta, v]
-np = 6;  % Parâmetros: [Bf,Br,Cf,Cr,Df,Dr]
-ns = 100;
-nparams =6 ; % Parâmetros: [Bf,Br,Cf,Cr,Df,Dr]
+%% Estados x = [s; n; µ; vx; vy; r; δ; T]
+s           = MX.sym('s');
+n           = MX.sym('n');
+heading_u   = MX.sym('heading_u'); %µ
+vx          = MX.sym('vx');
+vy          = MX.sym('vy');
+yaw_rate    = MX.sym('yaw_rate'); % r
+delta       = MX.sym('delta'); % δ
+throttle    = MX.sym('throttle'); % T
 
+x = [s;n;heading_u;vx;vy;yaw_rate;delta;throttle];
+nx=length(x);
 
-x = SX.sym('x', nx);
-u = SX.sym('u', nu);
-kappa_s = MX.sym('kappa_s', ns);
-% nl_s = SX.sym('nl', ns);
-% nr_s = SX.sym('nr', ns);
-params = SX.sym('p_global', nparams);
+%% Controlo u = [δ_req; T_req]
+delta_req =  MX.sym('delta_req');
+throttle_req =  MX.sym('throttle_req');
 
-%filename = params()
+u = [delta_req;throttle_req];
+nu=length(u);
 
-kappa_lut =interpolant('kappa_lut','linear',{track.s_traj},track.kappa_traj);
-n_l_lut =interpolant('n_l_lut','linear',{track.s_traj},track.nl_traj);
-n_r_lut =interpolant('n_r_lut','linear',{track.s_traj},track.nr_traj);
+%% d_x
+d_s = MX.sym('d_s');
+d_n = MX.sym('d_n');
+d_u = MX.sym('d_u');
+d_vx = MX.sym('d_vx');
+d_vy = MX.sym('d_vy');
+d_r = MX.sym('d_r');
+d_delta = MX.sym('d_delta');
+d_throttle = MX.sym('d_throttle');
 
+%% LUTs
+s_traj = track.s_traj;
+kappa_traj= track.kappa_traj;
+nl_traj =track.nl_traj ;
+nr_traj =track.nr_traj ;
 
-
-
-% p = sx.sym('p', np);
+%acrescentar no fim: s0(end) + s0(2:end)
+% s_traj = [s_traj(1:end-1) - s_traj(end) ; s_traj ; s_traj(end) + s_traj(2:end)];
 % 
-% kappa = p(1);
-% nl_s = p(2);
-% nr_s = p(3);
+% kappa_traj = [kappa_traj(1:end-1); kappa_traj ;  kappa_traj(2:end)];
+% 
+% nl_traj = [ nl_traj(1:end-1) ; nl_traj; nl_traj(2:end) ];
+% 
+% nr_traj = [ nr_traj(1:end-1); nr_traj ; nr_traj(2:end)];
 
-% Bf = params(1);
-% Br = params(2);
-% Cf = params(3);
-% Cr = params(4);
-% Df = params(5);
-% Dr = params(6);
-% params = [Bf;Br;Cf;Cr;Df;Dr];
+s_traj = [s_traj ; s_traj(end) + s_traj(2:end)];
+
+kappa_traj = [kappa_traj ;  kappa_traj(2:end)];
+
+nl_traj = [nl_traj; nl_traj(2:end)];
+
+nr_traj = [nr_traj ; nr_traj(2:end)];
+
+kappa_lut =interpolant('kappa_lut_l','linear',{s_traj},kappa_traj);
+n_l_lut =interpolant('n_l_lut_l','linear',{s_traj},nl_traj);
+n_r_lut =interpolant('n_r_lut_l','linear',{s_traj},nr_traj);
+
+%% Params
 
 % Bf = 7.6671;
 % Br = 7.1036;
@@ -61,10 +83,6 @@ Dr = 1.7327;
 Ef = 0.3722;
 Er = 1.0648;
 
-params = [];
-
-
-
 
 % Parâmetros fixos
 servo_max_rate = 5.2360;       % velocidade angular máxima (rad/s)
@@ -72,7 +90,7 @@ Wheelbase = 0.324; % Distância entre eixos
 
 mass = 3;
 track_width =0.296;
-length = 0.5;
+car_length = 0.5;
 
 % Constant motor Force-Cm= Fx/T : T=0.20 , acc_x= 5 m/s2 m=3 -> F=15N -> 75 
 Cm = 75;
@@ -93,69 +111,60 @@ g=9.8;
 Lf= Wheelbase/2;
 Lr= Wheelbase/2;
 
-% Rotational inertia
-Iz=1/12*mass*(0.5^2 + track_width^2); %0.5 are the car length
-%Iz=length*mass*Wheelbase^2; % 0.3 are de mass disturbation
+%% Rotational inertia
+Iz=1/12*mass*(car_length^2 + track_width^2); %0.5 are the car_length
+%Iz=car_length*mass*Wheelbase^2; % 0.3 are de mass disturbation
 
-
-% Estados x = [s; n; µ; vx; vy; r; δ; T]
-s           = x(1); % s
-n           = x(2); % n
-heading_u   = x(3); % µ
-vx         = x(4); % vx
-vy         = x(5); % vy
-yaw_rate    = x(6); % r
-delta       = x(7); % δ
-throttle    = x(8); % T
-
-% Entradas
-d_delta = (u(1)-delta)/Ds;
-d_throttle  = (u(2)-throttle)/Ds;
-
-% Normal loads on the tires
+%% Normal loads on the tires
 Fn_f = Lr/(Lf+Lr) *mass *g;   
 Fn_r = Lf/(Lf+Lr) *mass *g;   
 
-% Slip angles at the wheels
+%% Slip angles at the wheels
 v0=0.5;
 alfa_f = atan2(-vy - Lf* yaw_rate,vx+v0)+delta; 
 alfa_r = atan2(-vy + Lr* yaw_rate,vx+v0); 
 
-% Lateral tire forces
+%% Lateral tire forces
 Fy_f = Fn_f * Df * sin(Cf * atan(Bf*alfa_f)); 
 Fy_r = Fn_r * Dr * sin(Cr * atan(Br*alfa_r));
+% Fy_f=0;
+% Fy_r=0;
 
-% Force Motor
+%% Force Motor
 Fm=Cm*throttle;
 
+%% Force x
 sign_vx = vx / sqrt(vx^2 + epsilon);
-
-% Force x
 Fx = Fm - Frr * sign_vx;
 
-kappa= kappa_lut (s);
-nl_s= n_l_lut(s);
-nr_s = n_r_lut(s);
+%% LUTs Access
+pathlength = track.s_traj(end);
+s_mod = rem(s, pathlength);
 
-% kappa= 0.38;
-% nl_s=1;
-% nr_s = 1;
+kappa= kappa_lut(s_mod);
+% nl_s= n_l_lut(s_mod);
+% nr_s = n_r_lut(s_mod);
 
-disp([kappa,nl_s, nr_s])
+%kappa= 0.38;
+nl_s=1;
+nr_s = 1;
 
-d_s = vx*cos(heading_u) - vy*sin(heading_u)/(1-n*kappa);
-
+%% State X Dynamics
+% den  = 1 - kappa*n;
+% den  = 0.5*(den + sqrt(den*den + 1e-6));  % clamp suave
+% d_s = (vx*cos(heading_u) - vy*sin(heading_u))/den;
+d_s = (vx*cos(heading_u) - vy*sin(heading_u))/(1-n*kappa);
 d_n = vx*sin(heading_u) + vy*cos(heading_u);
-
-d_u = yaw_rate - kappa*d_s;
-
+d_u = yaw_rate - kappa * d_s;
 d_vx = 1/mass*(Fx - Fy_f * sin(delta) + mass*vy*yaw_rate);
-
 d_vy = 1/mass*(Fy_r + Fy_f * cos(delta) - mass*vx*yaw_rate);
-
 d_r = 1/Iz * (Fy_f * Lf * cos(delta) - Fy_r* Lr);
 
+%% Control U Dynamics
+d_delta = (delta_req-delta)/Ts;
+d_throttle  = (throttle_req-throttle)/Ts;
 
+%% Continuous Dynamics
 f_expl = [ ...
         d_s;
         d_n;
@@ -167,18 +176,20 @@ f_expl = [ ...
         d_throttle
         ];
 
+f_expl_func = Function('f_expl_func', {s; n; heading_u; vx; vy; yaw_rate; delta; throttle; delta_req; throttle_req}, {f_expl});
 
-% Track Bounds
-term1 = (length / 2) * sin(abs(heading_u));  % sin(|µ|) com CasADi
+%% Track Bounds
+term1 = (car_length / 2) * sin(abs(heading_u));  % sin(|µ|) com CasADi
 term2 = (track_width / 2) * cos(heading_u);
 
 b_left = n - term1 + term2;
 b_right= -n + term1 + term2;
 
-% Tires friction ellipse
+%% Tires friction ellipse
 phi_F = (rho_long*Fm/2)^2 + Fy_f^2  -  (lambda_f*Df)^2;
 phi_R = (rho_long*Fm/2)^2 + Fy_r^2  -  (lambda_r*Dr)^2;
 
+%% Nonlinear constraints
 %  model.con_h_expr=[...     
 %      b_left;
 %      b_right%;
@@ -188,49 +199,86 @@ phi_R = (rho_long*Fm/2)^2 + Fy_r^2  -  (lambda_r*Dr)^2;
 % 
 % model.con_h_expr_0= model.con_h_expr;
 
+%model.con_h_expr =[];
+
 infty = get_acados_infty();                     % for one-sided constraints
-% constraints.lb_h = [-infty; -infty ];
-% constraints.ub_h = [nl_s; nr_s];
+constraints.lb_h = [-infty; -infty ];
+constraints.ub_h = [nl_s; nr_s];
 % constraints.lb_h = [-infty; -infty; -infty; -infty];
 % constraints.ub_h = [nl_s; nr_s; 0; 0];
 % 
-% % state bounds
-constraints.throttle_min = -0.3;
+
+
+%% State bounds
+constraints.throttle_min = 0;
 constraints.throttle_max = 0.3;
 constraints.throttle_idx = 7; % idx zero-based
 
 constraints.delta_min = -0.40;  % minimum steering angle [rad]
 constraints.delta_max = 0.40;  % maximum steering angle [rad]
 constraints.delta_idx = 6; % idx zero-based
-% 
-% % input bounds
-% constraints.ddelta_min = -2.0;  % minimum change rate of stering angle [rad/s]
-% constraints.ddelta_max = 2.0;  % maximum change rate of steering angle [rad/s]
-% constraints.dthrottle_min = -10;  % -10.0  % minimum throttle change rate
-% constraints.dthrottle_max = 10;  % 10.0  % maximum throttle change rat
 
-% ----- ângulos de deslize ---------------------------------------
+constraints.heading_min = -pi/2;
+constraints.heading_max = pi/2;
+constraints.heading_idx = 2;
+
+%% Input bounds
+constraints.ddelta_min = -servo_max_rate*Ts;  % minimum change rate of stering angle [rad/s]
+constraints.ddelta_max = servo_max_rate*Ts;  % maximum change rate of steering angle [rad/s]
+constraints.dthrottle_min = -1*Ts;  % -10.0  % minimum throttle change rate
+constraints.dthrottle_max = 1*Ts;  % 10.0  % maximum throttle change rat
+
+%% ----- ângulos de deslize ---------------------------------------
 beta_dyn = atan2(vy,vx);
 beta_kin = atan( delta * Lr / (Lf+Lr) );
 Bexpr    = q_beta * (beta_dyn - beta_kin)^2;
 
-% ----- termo de rate-penalty ------------------------------------
+%% ----- termo de rate-penalty ------------------------------------
+R=diag([2.5, 2.0]); 
 uexpr    = u.' * R * u;
 
-L_stage = Ds/d_s ;%+ uexpr + Bexpr;     % (1×1) OK
+%% Funçao de Custo
+epsilon_cost = 1e-10;
+% L_stage = -8*(Ts*d_s) + 40*n^2+ 10*heading_u^2 + uexpr ;%+ Bexpr;     % (1×1) OK
+% L_stage_e = -8*(Ts*d_s) + 40*n^2+ 10*heading_u^2 ;%+ Bexpr;
+L_stage = -8*(Ts*d_s) + 80*n^2+ 20*heading_u^2 + uexpr ;%+ Bexpr;     % (1×1) OK
+L_stage_e = -8*(Ts*d_s) + 80*n^2+ 20*heading_u^2 ;%+ Bexpr;
 
 model.cost_expr_ext_cost = L_stage;
 model.cost_expr_ext_cost_0 = L_stage;
-model.cost_expr_ext_cost_e = SX.zeros(1,1);  % custo terminal = 0
+model.cost_expr_ext_cost_e = L_stage_e;  % custo terminal = 0
+
+% % pesos de estabilização (ajusta à vontade)
+% Qreg = diag([0, 40, 40, 0, 10, 4,  0, 0]);   % penaliza n, mu, vy, r
+% Rreg = diag([0.5, 1.5]);                    % penaliza u
+% 
+% % den protegido
+% s_min =0;
+% s_max= track.s_traj(end);
+% kap  = kappa_lut( min( max( x(1), s_min ), s_max ) );
+% den  = 1 - kap*x(2);
+% den  = 0.5*(den + sqrt(den*den + 1e-6));    % clamp suave
+% sdot = ( x(4)*cos(x(3)) - x(5)*sin(x(3)) ) / den;
+% 
+% w_prog = 8;            % começa baixo
+% w_term = 4;
+% 
+% stage_cost = x.'*Qreg*x + u.'*Rreg*u - w_prog*(Ts*sdot);
+% term_cost  = x.'*Qreg*x            - w_term*x(1);
+% 
+% model.cost_expr_ext_cost_0 = stage_cost;
+% model.cost_expr_ext_cost   = stage_cost;
+% model.cost_expr_ext_cost_e = term_cost;
 
 
 %p=[];
 
+%% ACADOS Model
 model.f_expl_expr = f_expl;
 model.x = x;
 model.u = u;
 %model.p = p;
-model.p_global = params;
+%model.p_global = params;
 
 % Dinâmica implícita
 %f_impl = f_expl - xdot;
@@ -239,5 +287,17 @@ model.p_global = params;
 
 %model.f_impl_expr = f_impl;
 model.name = 'mpc_model';
+
+
+%% Model Variables 
+model_var.x=x;
+model_var.nx=nx;
+model_var.u=u;
+model_var.nu=nu;
+model_var.kappa=kappa_lut;
+model_var.n_l_lut=n_l_lut;
+model_var.n_r_lut=n_r_lut;
+model_var.f_expl_func=f_expl_func;
+
 
 end

@@ -152,7 +152,7 @@ void mpc_model_acados_create_set_plan(ocp_nlp_plan_t* nlp_solver_plan, const int
     *  plan
     ************************************************/
 
-    nlp_solver_plan->nlp_solver = SQP;
+    nlp_solver_plan->nlp_solver = SQP_RTI;
 
     nlp_solver_plan->ocp_qp_solver_plan.qp_solver = PARTIAL_CONDENSING_HPIPM;
     nlp_solver_plan->relaxed_ocp_qp_solver_plan.qp_solver = PARTIAL_CONDENSING_HPIPM;
@@ -523,22 +523,22 @@ void mpc_model_acados_setup_nlp_in(mpc_model_solver_capsule* capsule, const int 
     double* lbx0 = lubx0;
     double* ubx0 = lubx0 + NBX0;
     // change only the non-zero elements:
-    lbx0[0] = 0.001;
-    ubx0[0] = 0.001;
-    lbx0[1] = 0.001;
-    ubx0[1] = 0.001;
-    lbx0[2] = 0.001;
-    ubx0[2] = 0.001;
-    lbx0[3] = 0.001;
-    ubx0[3] = 0.001;
-    lbx0[4] = 0.001;
-    ubx0[4] = 0.001;
-    lbx0[5] = 0.001;
-    ubx0[5] = 0.001;
-    lbx0[6] = 0.001;
-    ubx0[6] = 0.001;
-    lbx0[7] = 0.001;
-    ubx0[7] = 0.001;
+    lbx0[0] = 0.1;
+    ubx0[0] = 0.1;
+    lbx0[1] = 0.1;
+    ubx0[1] = 0.1;
+    lbx0[2] = 0.1;
+    ubx0[2] = 0.1;
+    lbx0[3] = 0.1;
+    ubx0[3] = 0.1;
+    lbx0[4] = 0.1;
+    ubx0[4] = 0.1;
+    lbx0[5] = 0.1;
+    ubx0[5] = 0.1;
+    lbx0[6] = 0.1;
+    ubx0[6] = 0.1;
+    lbx0[7] = 0.1;
+    ubx0[7] = 0.1;
 
     ocp_nlp_constraints_model_set(nlp_config, nlp_dims, nlp_in, nlp_out, 0, "idxbx", idxbx0);
     ocp_nlp_constraints_model_set(nlp_config, nlp_dims, nlp_in, nlp_out, 0, "lbx", lbx0);
@@ -566,6 +566,26 @@ void mpc_model_acados_setup_nlp_in(mpc_model_solver_capsule* capsule, const int 
 
 
     /* constraints that are the same for initial and intermediate */
+    // u
+    int* idxbu = malloc(NBU * sizeof(int));
+    idxbu[0] = 0;
+    idxbu[1] = 1;
+    double* lubu = calloc(2*NBU, sizeof(double));
+    double* lbu = lubu;
+    double* ubu = lubu + NBU;
+    lbu[0] = -0.5236;
+    ubu[0] = 0.5236;
+    lbu[1] = -0.1;
+    ubu[1] = 0.1;
+
+    for (int i = 0; i < N; i++)
+    {
+        ocp_nlp_constraints_model_set(nlp_config, nlp_dims, nlp_in, nlp_out, i, "idxbu", idxbu);
+        ocp_nlp_constraints_model_set(nlp_config, nlp_dims, nlp_in, nlp_out, i, "lbu", lbu);
+        ocp_nlp_constraints_model_set(nlp_config, nlp_dims, nlp_in, nlp_out, i, "ubu", ubu);
+    }
+    free(idxbu);
+    free(lubu);
 
 
 
@@ -576,15 +596,17 @@ void mpc_model_acados_setup_nlp_in(mpc_model_solver_capsule* capsule, const int 
 
     // x
     int* idxbx = malloc(NBX * sizeof(int));
-    idxbx[0] = 6;
-    idxbx[1] = 7;
+    idxbx[0] = 2;
+    idxbx[1] = 6;
+    idxbx[2] = 7;
     double* lubx = calloc(2*NBX, sizeof(double));
     double* lbx = lubx;
     double* ubx = lubx + NBX;
-    lbx[0] = -0.4;
-    ubx[0] = 0.4;
-    lbx[1] = -0.3;
-    ubx[1] = 0.3;
+    lbx[0] = -1.570796326794897;
+    ubx[0] = 1.570796326794897;
+    lbx[1] = -0.4;
+    ubx[1] = 0.4;
+    ubx[2] = 0.3;
 
     for (int i = 1; i < N; i++)
     {
@@ -605,6 +627,25 @@ void mpc_model_acados_setup_nlp_in(mpc_model_solver_capsule* capsule, const int 
 
     /* terminal constraints */
 
+    // set up bounds for last stage
+    // x
+    int* idxbx_e = malloc(NBXN * sizeof(int));
+    idxbx_e[0] = 2;
+    idxbx_e[1] = 6;
+    idxbx_e[2] = 7;
+    double* lubx_e = calloc(2*NBXN, sizeof(double));
+    double* lbx_e = lubx_e;
+    double* ubx_e = lubx_e + NBXN;
+    lbx_e[0] = -1.570796326794897;
+    ubx_e[0] = 1.570796326794897;
+    lbx_e[1] = -0.4;
+    ubx_e[1] = 0.4;
+    ubx_e[2] = 0.3;
+    ocp_nlp_constraints_model_set(nlp_config, nlp_dims, nlp_in, nlp_out, N, "idxbx", idxbx_e);
+    ocp_nlp_constraints_model_set(nlp_config, nlp_dims, nlp_in, nlp_out, N, "lbx", lbx_e);
+    ocp_nlp_constraints_model_set(nlp_config, nlp_dims, nlp_in, nlp_out, N, "ubx", ubx_e);
+    free(idxbx_e);
+    free(lubx_e);
 
 
 
@@ -663,13 +704,13 @@ static void mpc_model_acados_create_set_opts(mpc_model_solver_capsule* capsule)
 
     // set up sim_method_num_steps
     // all sim_method_num_steps are identical
-    int sim_method_num_steps = 2;
+    int sim_method_num_steps = 3;
     for (int i = 0; i < N; i++)
         ocp_nlp_solver_opts_set_at_stage(nlp_config, nlp_opts, i, "dynamics_num_steps", &sim_method_num_steps);
 
     // set up sim_method_num_stages
     // all sim_method_num_stages are identical
-    int sim_method_num_stages = 3;
+    int sim_method_num_stages = 4;
     for (int i = 0; i < N; i++)
         ocp_nlp_solver_opts_set_at_stage(nlp_config, nlp_opts, i, "dynamics_num_stages", &sim_method_num_stages);
 
@@ -699,14 +740,6 @@ static void mpc_model_acados_create_set_opts(mpc_model_solver_capsule* capsule)
 
     bool store_iterates = false;
     ocp_nlp_solver_opts_set(nlp_config, nlp_opts, "store_iterates", &store_iterates);
-    int log_primal_step_norm = 0;
-    ocp_nlp_solver_opts_set(nlp_config, nlp_opts, "log_primal_step_norm", &log_primal_step_norm);
-
-    int log_dual_step_norm = 0;
-    ocp_nlp_solver_opts_set(nlp_config, nlp_opts, "log_dual_step_norm", &log_dual_step_norm);
-
-    double nlp_solver_tol_min_step_norm = 0;
-    ocp_nlp_solver_opts_set(nlp_config, nlp_opts, "tol_min_step_norm", &nlp_solver_tol_min_step_norm);
     // set HPIPM mode: should be done before setting other QP solver options
     ocp_nlp_solver_opts_set(nlp_config, nlp_opts, "qp_hpipm_mode", "BALANCE");
 
@@ -718,75 +751,17 @@ static void mpc_model_acados_create_set_opts(mpc_model_solver_capsule* capsule)
 
 
 
-    // set SQP specific options
-    double nlp_solver_tol_stat = 0.000001;
-    ocp_nlp_solver_opts_set(nlp_config, nlp_opts, "tol_stat", &nlp_solver_tol_stat);
+    int as_rti_iter = 1;
+    ocp_nlp_solver_opts_set(nlp_config, nlp_opts, "as_rti_iter", &as_rti_iter);
 
-    double nlp_solver_tol_eq = 0.000001;
-    ocp_nlp_solver_opts_set(nlp_config, nlp_opts, "tol_eq", &nlp_solver_tol_eq);
+    int as_rti_level = 4;
+    ocp_nlp_solver_opts_set(nlp_config, nlp_opts, "as_rti_level", &as_rti_level);
 
-    double nlp_solver_tol_ineq = 0.000001;
-    ocp_nlp_solver_opts_set(nlp_config, nlp_opts, "tol_ineq", &nlp_solver_tol_ineq);
+    int rti_log_residuals = 0;
+    ocp_nlp_solver_opts_set(nlp_config, nlp_opts, "rti_log_residuals", &rti_log_residuals);
 
-    double nlp_solver_tol_comp = 0.000001;
-    ocp_nlp_solver_opts_set(nlp_config, nlp_opts, "tol_comp", &nlp_solver_tol_comp);
-
-    int nlp_solver_max_iter = 100;
-    ocp_nlp_solver_opts_set(nlp_config, nlp_opts, "max_iter", &nlp_solver_max_iter);
-
-    // set options for adaptive Levenberg-Marquardt Update
-    bool with_adaptive_levenberg_marquardt = 0;
-    ocp_nlp_solver_opts_set(nlp_config, nlp_opts, "with_adaptive_levenberg_marquardt", &with_adaptive_levenberg_marquardt);
-
-    double adaptive_levenberg_marquardt_lam = 5;
-    ocp_nlp_solver_opts_set(nlp_config, nlp_opts, "adaptive_levenberg_marquardt_lam", &adaptive_levenberg_marquardt_lam);
-
-    double adaptive_levenberg_marquardt_mu_min = 0.0000000000000001;
-    ocp_nlp_solver_opts_set(nlp_config, nlp_opts, "adaptive_levenberg_marquardt_mu_min", &adaptive_levenberg_marquardt_mu_min);
-
-    double adaptive_levenberg_marquardt_mu0 = 0.001;
-    ocp_nlp_solver_opts_set(nlp_config, nlp_opts, "adaptive_levenberg_marquardt_mu0", &adaptive_levenberg_marquardt_mu0);
-
-    double adaptive_levenberg_marquardt_obj_scalar = 2;
-    ocp_nlp_solver_opts_set(nlp_config, nlp_opts, "adaptive_levenberg_marquardt_obj_scalar", &adaptive_levenberg_marquardt_obj_scalar);
-
-    bool eval_residual_at_max_iter = false;
-    ocp_nlp_solver_opts_set(nlp_config, nlp_opts, "eval_residual_at_max_iter", &eval_residual_at_max_iter);
-
-    // QP scaling
-    double qpscaling_ub_max_abs_eig = 100000;
-    ocp_nlp_solver_opts_set(nlp_config, nlp_opts, "qpscaling_ub_max_abs_eig", &qpscaling_ub_max_abs_eig);
-
-    double qpscaling_lb_norm_inf_grad_obj = 0.0001;
-    ocp_nlp_solver_opts_set(nlp_config, nlp_opts, "qpscaling_lb_norm_inf_grad_obj", &qpscaling_lb_norm_inf_grad_obj);
-
-    qpscaling_scale_objective_type qpscaling_scale_objective = NO_OBJECTIVE_SCALING;
-    ocp_nlp_solver_opts_set(nlp_config, nlp_opts, "qpscaling_scale_objective", &qpscaling_scale_objective);
-
-    ocp_nlp_qpscaling_constraint_type qpscaling_scale_constraints = NO_CONSTRAINT_SCALING;
-    ocp_nlp_solver_opts_set(nlp_config, nlp_opts, "qpscaling_scale_constraints", &qpscaling_scale_constraints);
-
-    // NLP QP tol strategy
-    ocp_nlp_qp_tol_strategy_t nlp_qp_tol_strategy = FIXED_QP_TOL;
-    ocp_nlp_solver_opts_set(nlp_config, nlp_opts, "nlp_qp_tol_strategy", &nlp_qp_tol_strategy);
-
-    double nlp_qp_tol_reduction_factor = 0.1;
-    ocp_nlp_solver_opts_set(nlp_config, nlp_opts, "nlp_qp_tol_reduction_factor", &nlp_qp_tol_reduction_factor);
-
-    double nlp_qp_tol_safety_factor = 0.1;
-    ocp_nlp_solver_opts_set(nlp_config, nlp_opts, "nlp_qp_tol_safety_factor", &nlp_qp_tol_safety_factor);
-
-    double nlp_qp_tol_min_stat = 0.000000001;
-    ocp_nlp_solver_opts_set(nlp_config, nlp_opts, "nlp_qp_tol_min_stat", &nlp_qp_tol_min_stat);
-
-    double nlp_qp_tol_min_eq = 0.0000000001;
-    ocp_nlp_solver_opts_set(nlp_config, nlp_opts, "nlp_qp_tol_min_eq", &nlp_qp_tol_min_eq);
-
-    double nlp_qp_tol_min_ineq = 0.0000000001;
-    ocp_nlp_solver_opts_set(nlp_config, nlp_opts, "nlp_qp_tol_min_ineq", &nlp_qp_tol_min_ineq);
-
-    double nlp_qp_tol_min_comp = 0.00000000001;
-    ocp_nlp_solver_opts_set(nlp_config, nlp_opts, "nlp_qp_tol_min_comp", &nlp_qp_tol_min_comp);
+    int rti_log_only_available_residuals = 0;
+    ocp_nlp_solver_opts_set(nlp_config, nlp_opts, "rti_log_only_available_residuals", &rti_log_only_available_residuals);
 
     bool with_anderson_acceleration = 0;
     ocp_nlp_solver_opts_set(nlp_config, nlp_opts, "with_anderson_acceleration", &with_anderson_acceleration);
@@ -795,8 +770,16 @@ static void mpc_model_acados_create_set_opts(mpc_model_solver_capsule* capsule)
     ocp_nlp_solver_opts_set(nlp_config, nlp_opts, "qp_iter_max", &qp_solver_iter_max);
 
 
+    double qp_solver_tol_stat = 0.01;
+    ocp_nlp_solver_opts_set(nlp_config, nlp_opts, "qp_tol_stat", &qp_solver_tol_stat);
+    double qp_solver_tol_eq = 0.01;
+    ocp_nlp_solver_opts_set(nlp_config, nlp_opts, "qp_tol_eq", &qp_solver_tol_eq);
+    double qp_solver_tol_ineq = 0.01;
+    ocp_nlp_solver_opts_set(nlp_config, nlp_opts, "qp_tol_ineq", &qp_solver_tol_ineq);
+    double qp_solver_tol_comp = 0.01;
+    ocp_nlp_solver_opts_set(nlp_config, nlp_opts, "qp_tol_comp", &qp_solver_tol_comp);
 
-    int print_level = 4;
+    int print_level = 3;
     ocp_nlp_solver_opts_set(nlp_config, nlp_opts, "print_level", &print_level);
     int qp_solver_cond_ric_alg = 1;
     ocp_nlp_solver_opts_set(nlp_config, nlp_opts, "qp_cond_ric_alg", &qp_solver_cond_ric_alg);
@@ -830,14 +813,14 @@ void mpc_model_acados_set_nlp_out(mpc_model_solver_capsule* capsule)
     double* x0 = xu0;
 
     // initialize with x0
-    x0[0] = 0.001;
-    x0[1] = 0.001;
-    x0[2] = 0.001;
-    x0[3] = 0.001;
-    x0[4] = 0.001;
-    x0[5] = 0.001;
-    x0[6] = 0.001;
-    x0[7] = 0.001;
+    x0[0] = 0.1;
+    x0[1] = 0.1;
+    x0[2] = 0.1;
+    x0[3] = 0.1;
+    x0[4] = 0.1;
+    x0[5] = 0.1;
+    x0[6] = 0.1;
+    x0[7] = 0.1;
 
 
     double* u0 = xu0 + NX;
@@ -1114,29 +1097,19 @@ void mpc_model_acados_print_stats(mpc_model_solver_capsule* capsule)
         printf("stat_n_max = %d is too small, increase it in the template!\n", stat_n_max);
         exit(1);
     }
-    double stat[1600];
+    double stat[3200];
     ocp_nlp_get(capsule->nlp_solver, "statistics", stat);
 
     int nrow = nlp_iter+1 < stat_m ? nlp_iter+1 : stat_m;
 
 
-    printf("iter\tres_stat\tres_eq\t\tres_ineq\tres_comp\tqp_stat\tqp_iter\talpha");
-    if (stat_n > 8)
-        printf("\t\tqp_res_stat\tqp_res_eq\tqp_res_ineq\tqp_res_comp");
-    printf("\n");
+    printf("iter\tqp_stat\tqp_iter\n");
     for (int i = 0; i < nrow; i++)
     {
         for (int j = 0; j < stat_n + 1; j++)
         {
-            if (j == 0 || j == 5 || j == 6)
-            {
-                tmp_int = (int) stat[i + j * nrow];
-                printf("%d\t", tmp_int);
-            }
-            else
-            {
-                printf("%e\t", stat[i + j * nrow]);
-            }
+            tmp_int = (int) stat[i + j * nrow];
+            printf("%d\t", tmp_int);
         }
         printf("\n");
     }
