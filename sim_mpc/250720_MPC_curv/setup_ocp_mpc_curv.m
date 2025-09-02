@@ -123,7 +123,7 @@ function [solver, model_var] = setup_ocp_mpc_curv(N, Ts, R, track)
 
     %% === Opções do solver ===
    
-
+    %ocp.solver_options.integrator_type = "DISCRETE";
 
     if (~isempty(ocp.model.f_expl_expr))
         ocp.solver_options.integrator_type = 'ERK';
@@ -137,8 +137,12 @@ function [solver, model_var] = setup_ocp_mpc_curv(N, Ts, R, track)
     end
 
     ocp.solver_options.qp_solver = 'PARTIAL_CONDENSING_HPIPM';
+    %ocp.solver_options.qp_solver = 'FULL_CONDENSING_HPIPM';
     ocp.solver_options.hessian_approx ='GAUSS_NEWTON';
+    %ocp.solver_options.hessian_approx = 'EXACT';
     ocp.solver_options.nlp_solver_type = 'SQP_RTI'; % ou 'SQP_RTI' para mais rápido
+
+    ocp.solver_options.regularize_method = 'CONVEXIFY';
 
     % ocp.solver_options.qp_solver = 'FULL_CONDENSING_HPIPM';
     % ocp.solver_options.hessian_approx = 'EXACT';

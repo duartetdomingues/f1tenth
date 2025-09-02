@@ -1,6 +1,6 @@
 {
-	"acados_include_path":"/home/duarte/acados/include",
-	"acados_lib_path":"/home/duarte/acados/lib",
+	"acados_include_path":"/home/desktop/acados/include",
+	"acados_lib_path":"/home/desktop/acados/lib",
 	"code_export_directory":"c_generated_code",
 	"constraints":{
 		"C":[],
@@ -44,6 +44,9 @@
 			6,
 			7
 		],
+		"idxs_rev":[],
+		"idxs_rev_0":[],
+		"idxs_rev_e":[],
 		"idxsbu":[],
 		"idxsbx":[],
 		"idxsbx_e":[],
@@ -81,12 +84,21 @@
 		],
 		"lg":[],
 		"lg_e":[],
-		"lh":[],
-		"lh_0":[],
+		"lh":[
+			-10000000000,
+			-10000000000
+		],
+		"lh_0":[
+			-10000000000,
+			-10000000000
+		],
 		"lh_e":[],
 		"lphi":[],
 		"lphi_0":[],
 		"lphi_e":[],
+		"ls":[],
+		"ls_0":[],
+		"ls_e":[],
 		"lsbu":{
 			"_ArrayType_":"double",
 			"_ArraySize_":[0,1],
@@ -160,12 +172,21 @@
 		],
 		"ug":[],
 		"ug_e":[],
-		"uh":[],
-		"uh_0":[],
+		"uh":[
+			1,
+			1
+		],
+		"uh_0":[
+			1,
+			1
+		],
 		"uh_e":[],
 		"uphi":[],
 		"uphi_0":[],
 		"uphi_e":[],
+		"us":[],
+		"us_0":[],
+		"us_e":[],
 		"usbu":{
 			"_ArrayType_":"double",
 			"_ArraySize_":[0,1],
@@ -271,8 +292,8 @@
 		"nbxe_0":8,
 		"ng":0,
 		"ng_e":0,
-		"nh":0,
-		"nh_0":0,
+		"nh":2,
+		"nh_0":2,
 		"nh_e":0,
 		"np":0,
 		"np_global":0,
@@ -318,7 +339,11 @@
 		"mpc_model_cost/mpc_model_cost_ext_cost_fun_jac_hess.c",
 		"mpc_model_cost/mpc_model_cost_ext_cost_e_fun.c",
 		"mpc_model_cost/mpc_model_cost_ext_cost_e_fun_jac.c",
-		"mpc_model_cost/mpc_model_cost_ext_cost_e_fun_jac_hess.c"
+		"mpc_model_cost/mpc_model_cost_ext_cost_e_fun_jac_hess.c",
+		"mpc_model_constraints/mpc_model_constr_h_0_fun.c",
+		"mpc_model_constraints/mpc_model_constr_h_0_fun_jac_uxt_zt.c",
+		"mpc_model_constraints/mpc_model_constr_h_fun.c",
+		"mpc_model_constraints/mpc_model_constr_h_fun_jac_uxt_zt.c"
 	],
 	"json_file":"acados_ocp_nlp.json",
 	"model":{
@@ -444,7 +469,7 @@
 		"reg_epsilon":0.0001,
 		"reg_max_cond_block":10000000,
 		"reg_min_epsilon":1e-08,
-		"regularize_method":"NO_REGULARIZE",
+		"regularize_method":"CONVEXIFY",
 		"rti_log_only_available_residuals":0,
 		"rti_log_residuals":0,
 		"search_direction_mode":"NOMINAL_QP",

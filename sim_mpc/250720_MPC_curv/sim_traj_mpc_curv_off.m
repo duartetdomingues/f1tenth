@@ -2,13 +2,16 @@
 %speed_to_erpm_gain  = 4277.5
 %speed_to_duty (m/s) = 0.0602
 % clear mex; clear classes; close all; 
-close all; 
+clf('reset')
+%close all; 
 clear;
 %clear mex; clear classes;
 
 compile_solver=true;
 
 Ts = 1/10;      % Tempo de amostragem (20 Hz)
+T_s_total = 50; % Tempo de sim
+
 % Definir o horizonte de predição
 N = 10; % Horizonte do MPC
 
@@ -24,7 +27,8 @@ v_max = 2.5;        % Velocidade máxima (m/s)
 delta_max = abs(servo_max/servo_gain); % Ângulo máximo de direção (radianos)
 
 %% Upload Traj
-traj_file="centerline_map_2025-07-16_15-28-18.csv";
+%traj_file="centerline_map_2025-07-16_15-28-18.csv";
+traj_file="centerline_v2_test_map.csv";
 traj_dir="../../traj";
 
 % Caminho para o ficheiro
@@ -46,9 +50,19 @@ track.kappa_traj=data(:,4);
 track.nl_traj =ones(length(track.kappa_traj),1);
 track.nr_traj =ones(length(track.kappa_traj),1);
 
- % figure
- % plot(x_traj, y_traj, 'r.', 'markersize', 10);
- % axis equa
+[left_x, left_y, right_x, right_y] = computeTrackBoundaries(track);
+
+
+
+figure
+hold on
+plot(track.x_traj, track.y_traj, 'r.', 'markersize', 10);
+plot(left_x, left_y, 'b.', 'markersize', 5);
+plot(right_x, right_y, 'b.', 'markersize', 5);
+legend('Trajetória', 'Lado Esquerdo', 'Lado Direito');
+axis equal
+
+ 
 
 
 % Parâmetros do MPC
@@ -118,7 +132,6 @@ history = x';
 u0=[1;1]*0.1;
 u_history=u0';
 
-T_s_total = 20; % Tempo de sim
 
 % Gráfico Trajetoria
 figure(1);
@@ -255,6 +268,7 @@ for t_idx = 1:T_s_total/Ts-1
     solver.print('stat')
     x
     J = solver.get('cost_value')
+    V = solver.get('constraint_violation');
 
     u = solver.get('u', 0);
 
@@ -344,13 +358,17 @@ ylabel("Tempo[ms]")
 %fprintf("distancia percorrida",int(history(:,5),Ts))
 
 figure(6);
-subplot(2,1,1);
 hold on
 plot(history_xy(:,1),history_xy(:,2), 'r.', 'markersize', 10);
 plot(track.x_traj, track.y_traj, 'y--', 'LineWidth', 1.5);
+plot(left_x, left_y, 'b.', 'markersize', 5);
+plot(right_x, right_y, 'b.', 'markersize', 5);
 
-figure;
+figure(7);
+hold on
 scatter(history_xy(:,1), history_xy(:,2), 15, history(2:end,4), 'filled'); % pontos coloridos
+plot(left_x, left_y, 'b.', 'markersize', 5);
+plot(right_x, right_y, 'b.', 'markersize', 5);
 colormap(jet); % escala de cores
 c = colorbar;  
 c.Label.String = 'Velocidade [m/s]';   % unidades no colorbar
@@ -361,7 +379,7 @@ title('Trajetória com velocidade como cor');
 axis equal;
 
 
-figure;
+figure(8);
 x=history_xy(:,1);
 y=history_xy(:,2);
 vel=history(2:end,4);
@@ -370,7 +388,8 @@ hold on;
 % Criar "linha 3D achatada" com cor
 surface([x'; x'], [y'; y'], [zeros(size(x')); zeros(size(x'))], ...
         [vel'; vel'], 'facecol', 'no', 'edgecol', 'interp', 'linew', 3);
-
+plot(left_x, left_y, 'b.', 'markersize', 5);
+plot(right_x, right_y, 'b.', 'markersize', 5);
 colorbar;
 colormap(jet);
 xlabel('X [m]');
@@ -478,6 +497,64 @@ function [x,y,psi ,X_s, Y_s,theta_s]=local_to_global_pose (track, model_var,x)
     y = Y_s + n_val * cos(theta_s);
     psi = theta_s + mu_val;
 end
+
+function [left_x, left_y, right_x, right_y] = computeTrackBoundaries(track)
+    % Função que calcula as bordas esquerda e direita de uma pista
+    % usando a curvatura e a trajetória.
+    %
+    % Parâmetros de entrada:
+    % track - Estrutura com os dados da trajetória, contendo:
+    %         track.x_traj - Coordenadas x da trajetória
+    %         track.y_traj - Coordenadas y da trajetória
+    %         track.kappa_traj - Curvatura ao longo da trajetória
+    % nl_traj - Largura da pista à esquerda (em unidades correspondentes à trajetória)
+    % nr_traj - Largura da pista à direita (em unidades correspondentes à trajetória)
+    %
+    % Parâmetros de saída:
+    % left_x, left_y - Coordenadas das bordas esquerda
+    % right_x, right_y - Coordenadas das bordas direita
+
+    % Calcular as direções tangenciais à trajetória
+    dx = diff(track.x_traj); % Diferença nas coordenadas x
+    dy = diff(track.y_traj); % Diferença nas coordenadas y
+    d = sqrt(dx.^2 + dy.^2); % Distância entre os pontos consecutivos
+    
+    % Direções normais à trajetória (perpendicular à tangente)
+    theta = atan2(dy, dx); % Ângulo tangencial da trajetória (em radianos)
+    norm_x = -sin(theta); % Componente normal em x
+    norm_y = cos(theta);  % Componente normal em y
+    
+    % Normalizar as direções normais
+    norm_x = [norm_x; norm_x(end)]; % Adiciona o último valor para manter o tamanho
+    norm_y = [norm_y; norm_y(end)]; % Adiciona o último valor para manter o tamanho
+
+    % Larguras à esquerda e à direita, ajustadas pela curvatura
+    left_x = track.x_traj + track.nl_traj .* norm_x;
+    left_y = track.y_traj + track.nl_traj .* norm_y;
+    right_x = track.x_traj - track.nr_traj .* norm_x;
+    right_y = track.y_traj - track.nr_traj .* norm_y;
+end
+
+
+function  computeLastCost(history,Ts)
+
+%L_stage_e = -8*(Ts*d_s) + 10*n^2+ 20*heading_u^2 %+300*Bexpr;
+N=width(history')
+
+x_last=history(N-1,:);
+x=history(N,:);
+dx=x-x_last;
+
+S_cost=-8*(Ts*dx(1))
+N_cost=10*x(2)^2
+U_cost=20*x(3)^2
+
+Total_Cost=S_cost+N_cost+U_cost
+    
+end
+
+
+
 
 
 

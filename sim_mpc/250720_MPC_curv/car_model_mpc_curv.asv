@@ -244,21 +244,17 @@ beta_kin = atan( delta * Lr / (Lf+Lr) );
 Bexpr    = q_beta * (beta_dyn - beta_kin)^2;
 
 %% ----- termo de rate-penalty ------------------------------------
-R=diag([1.0, 1.0]); 
+R=diag([2.5, 2.0]); 
 uexpr    = u.' * R * u;
 
 %% Funçao de Custo
-
-
-
-
 epsilon_cost = 1e-10;
 % L_stage = -8*(Ts*d_s) + 40*n^2+ 10*heading_u^2 + uexpr ;%+ Bexpr;     % (1×1) OK
 % L_stage_e = -8*(Ts*d_s) + 40*n^2+ 10*heading_u^2 ;%+ Bexpr;
 % L_stage =-8*(Ts*d_s+0.01) + 5*n^2+ 5*heading_u^2 +Bexpr%+ uexpr %+ 300*Bexpr;     % (1×1) OK
 % L_stage_e = -8*(Ts*d_s+0.01)+ 5*n^2+ 5*heading_u^2 +Bexpr;
-L_stage = 15*0.01/(d_s) + 2*Bexpr  + uexpr;
-L_stage_e = 15*0.01/(d_s) + 2* Bexpr;
+L_stage = 0.01/(10*d_s) %+ Bexpr;
+L_stage_e = 0.01/(10*d_s)%+ Bexpr;
 
 model.cost_expr_ext_cost = L_stage;
 model.cost_expr_ext_cost_0 = L_stage;
