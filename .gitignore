@@ -11,3 +11,5 @@ log/*
 rosbag/*
 *.o
 *.a
+c_generated_code/
+**/c_generated_code/
