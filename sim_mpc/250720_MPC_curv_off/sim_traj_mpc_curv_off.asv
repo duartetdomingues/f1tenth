@@ -2,33 +2,47 @@
 %speed_to_erpm_gain  = 4277.5
 %speed_to_duty (m/s) = 0.0602
 % clear mex; clear classes; close all; 
-close all; 
+clf('reset')
+%close all; 
 clear;
 %clear mex; clear classes;
 
 compile_solver=true;
+save_traj=true;
 
 Ts = 1/10;      % Tempo de amostragem (20 Hz)
+T_s_total = 80; % Tempo de sim
+
 % Definir o horizonte de predição
-N = 10; % Horizonte do MPC
+N = 20; % Horizonte do MPC
 
 L = 0.35; % Distância entre eixos
 servo_gain=-0.840; % Ganho do servo (rad/unidade)
 
 servo_max_rate = 5.2360/10;
-
-
 servo_max=0.4; % Ângulo máximo do servo
-v_max = 2.5;        % Velocidade máxima (m/s)
+
 
 delta_max = abs(servo_max/servo_gain); % Ângulo máximo de direção (radianos)
 
+%% Parâmetros do MPC
+%p= [weight_ds; weight_beta; weight_dalpha; weight_dthrottle; safety_margin];
+
+weight_ds = 15;
+weight_beta = 0.1;
+weight_dalpha = 1;
+weight_dthrottle = 1;
+safety_margin = 0.1; % 5 cm
+
+p=[weight_ds; weight_beta; weight_dalpha; weight_dthrottle; safety_margin];
+
 %% Upload Traj
-traj_file="centerline_map_2025-07-16_15-28-18.csv";
+%traj_file="centerline_map_2025-07-16_15-28-18.csv";
+traj_filename="centerline_v2_test_map.csv";
 traj_dir="../../traj";
 
 % Caminho para o ficheiro
-traj_file = fullfile(traj_dir,traj_file);
+traj_file = fullfile(traj_dir,traj_filename);
 
 % Verificar se o ficheiro existe
 if ~isfile(traj_file)
@@ -50,7 +64,7 @@ track.nr_traj =ones(length(track.kappa_traj),1);
 
 
 
-figure
+figure(1)
 hold on
 plot(track.x_traj, track.y_traj, 'r.', 'markersize', 10);
 plot(left_x, left_y, 'b.', 'markersize', 5);
@@ -59,10 +73,6 @@ legend('Trajetória', 'Lado Esquerdo', 'Lado Direito');
 axis equal
 
  
-
-
-% Parâmetros do MPC
-R = diag([1.0, 1.5]);       % Ponderação dos controles
 
 check_acados_requirements()
 lib_path = fullfile(pwd, 'c_generated_code/');
@@ -89,7 +99,7 @@ import casadi.*
 
 if(compile_solver || ~exist('solver', 'var') )
     clear solver
-    [solver, model_var] = setup_ocp_mpc_curv(N, Ts, R, track);  % <- Verifica se tens este ficheiro
+    [solver, model_var] = setup_ocp_mpc_curv(N, p ,Ts, track);  % <- Verifica se tens este ficheiro
     %save('solver_data.mat', 'solver');
 else 
     % solver=acados_mex_create_mpc_model();
@@ -124,23 +134,29 @@ x =[0.2224
     0.1000];
 
 
-history = x';
 u0=[1;1]*0.1;
 u_history=u0';
 
-T_s_total = 20; % Tempo de sim
 
 % Gráfico Trajetoria
 figure(1);
+clf
 hold on; grid on;
 plot(track.x_traj, track.y_traj, 'r--', 'LineWidth', 1.5);
+plot(left_x, left_y, 'b.', 'markersize', 5);
+plot(right_x, right_y, 'b.', 'markersize', 5);
 %traj = plot(x(1), x(2), 'bo-', 'LineWidth', 2);
 % Seta de orientação
 heading_arrow = quiver(0,0, cos(0), sin(0), 0.5, 'b', 'LineWidth', 2, 'MaxHeadSize', 2);
 horizon_line = plot(nan, nan, 'g.-', 'LineWidth', 1.5); % linha do horizonte    
 traj_ref = plot(track.x_traj, track.y_traj, 'y--', 'LineWidth', 1.5);
 ref_point = quiver(0,0, cos(0), sin(0), 0.5, 'o', 'LineWidth', 2, 'MaxHeadSize', 2);
-traj_history= plot(0,0, 'r.', 'markersize', 10);
+traj_history= surface([0; 0], [0; 0], [zeros(size(0)); zeros(size(0))], ...
+        [0; 0], 'facecol', 'no', 'edgecol', 'interp', 'linew', 3);
+colormap(jet);
+c = colorbar;
+c.Label.String = 'Velocidade [m/s]';
+caxis([1 4]);
 
 xlabel('x [m]'); ylabel('y [m]');
 title('Sim MPC');
@@ -193,8 +209,8 @@ ylabel('Throttle');
 
 t_exec=0;
 
-
-Bf = 7.6671;
+%{
+ Bf = 7.6671;
 Br = 7.1036;
 Cf = 1.2628;
 Cr = 1.7356;
@@ -208,7 +224,9 @@ Cr = 1;
 Df = 1;
 Dr = 1;
 
-p_global=[true,Bf,Br,Cf,Cr,Df,Dr]';
+p_global=[true,Bf,Br,Cf,Cr,Df,Dr]'; 
+%}
+
 
 %p_global=zeros(6,1);
 
@@ -216,34 +234,21 @@ p_global=[true,Bf,Br,Cf,Cr,Df,Dr]';
 
 %solver.set("p_global",p_global')
 
-%solver.set('p',[Ts; servo_max_rate]);
+
+
+solver.set('p',p);
 
 mpc_sim_u={};
 mpc_sim_x={};
 
 history_pred={};
 history_xy=[];
+history = [];
 
 % Loop principal do MPC
 for t_idx = 1:T_s_total/Ts-1
     % Trajetória de referência para o horizonte atual
     
-
-   % 1. Update the kappa(s)
-
-    
-
-    % ----- Definir referências para o ACADOS -----
-    % yref_all = zeros(4, N);
-    % for k = 1:N
-    %     yref_all(:,k) = [x_ref_step(k); y_ref_step(k); 0 ;v_ref];
-    % end
-
-    %solver.set('cost_y_ref', yref_all);
-
-    %solver.set('yref_e', [x_ref_step(end); y_ref_step(end); 0; 0; v_ref]);
-    %solver.set(N, 'p', [x_ref_step(end); y_ref_step(end); v_ref]);
-
 
     solver.set('constr_lbx', x, 0);  % Estado inicial lower bound no estágio 0
     solver.set('constr_ubx', x, 0);
@@ -265,6 +270,7 @@ for t_idx = 1:T_s_total/Ts-1
     solver.print('stat')
     x
     J = solver.get('cost_value')
+    V = solver.get('constraint_violation');
 
     u = solver.get('u', 0);
 
@@ -284,12 +290,6 @@ for t_idx = 1:T_s_total/Ts-1
     else 
         %x = x + full(model_var.f_expl_func(x(1),x(2),x(3),x(4),x(5),x(6),x(7),x(8),u(1),u(2)))*Ts;
     end
-
-    % Normalizar s
-    % if x(1)>track.s_traj(end)
-    %    x(1)= x(1)-track.s_traj(end);
-    % end
-    
 
 
     history = [history; x'];
@@ -313,33 +313,26 @@ for t_idx = 1:T_s_total/Ts-1
         Y_h(k) = yg;
     end
     
-    % if x(1)>track.s_traj(end)
-    %     x(1)= mod(x(1), track.s_traj(end));
-    %     solver.reset();
-    %     solver.set('constr_x0', x);
-    %     %solver.set('init_x', x);
-    %     %solver.set('x',x)
-    %     solver.set('qp_warm_start', 0);
-    % end
-
     %set(traj, 'XData', history(:,1), 'YData', history(:,2));
     set(horizon_line, 'XData', X_h, 'YData', Y_h);
     set(ref_point,'XData', X_s, 'YData', Y_s , 'UData', cos(psi_s), 'VData', sin(psi_s));
-    set(traj_history,'XData', history_xy(:,1), 'YData', history_xy(:,2));
+
+    set(traj_history,'XData', [history_xy(:,1)'; history_xy(:,1)'], 'YData', [history_xy(:,2)';history_xy(:,2)'], 'ZData',[zeros(size(history_xy(:,1)')); zeros(size(history_xy(:,1)'))],'CData', [history(:,4)';history(:,4)']);
+
     set(heading_arrow,'XData', X, 'YData', Y ,'UData', cos(psi), 'VData', sin(psi));
 
 
     drawnow;
     % set(traj_ref, 'XData', x_ref_step , 'YData', y_ref_step);
     % drawnow;
-    set(p_s , 'XData', 0:t_idx, 'YData', history(:,1));
-    set(p_n , 'XData', 0:t_idx, 'YData', history(:,2));
-    set(p_u , 'XData', 0:t_idx, 'YData', history(:,3));
-    set(p_vx , 'XData', 0:t_idx, 'YData', history(:,4));
-    set(p_vy , 'XData', 0:t_idx, 'YData', history(:,5));
-    set(p_r , 'XData', 0:t_idx, 'YData',history(:,6));
-    set(p_u1, 'XData', 0:t_idx, 'YData',history(:,7));
-    set(p_u2, 'XData', 0:t_idx, 'YData',history(:,8));
+    set(p_s , 'XData', 1:t_idx, 'YData', history(:,1));
+    set(p_n , 'XData', 1:t_idx, 'YData', history(:,2));
+    set(p_u , 'XData', 1:t_idx, 'YData', history(:,3));
+    set(p_vx , 'XData', 1:t_idx, 'YData', history(:,4));
+    set(p_vy , 'XData', 1:t_idx, 'YData', history(:,5));
+    set(p_r , 'XData', 1:t_idx, 'YData',history(:,6));
+    set(p_u1, 'XData', 1:t_idx, 'YData',history(:,7));
+    set(p_u2, 'XData', 1:t_idx, 'YData',history(:,8));
     drawnow;
 
 
@@ -360,9 +353,10 @@ plot(track.x_traj, track.y_traj, 'y--', 'LineWidth', 1.5);
 plot(left_x, left_y, 'b.', 'markersize', 5);
 plot(right_x, right_y, 'b.', 'markersize', 5);
 
-figure;
+figure(7);
+clf
 hold on
-scatter(history_xy(:,1), history_xy(:,2), 15, history(2:end,4), 'filled'); % pontos coloridos
+scatter(history_xy(:,1), history_xy(:,2), 15, history(:,4), 'filled'); % pontos coloridos
 plot(left_x, left_y, 'b.', 'markersize', 5);
 plot(right_x, right_y, 'b.', 'markersize', 5);
 colormap(jet); % escala de cores
@@ -375,10 +369,10 @@ title('Trajetória com velocidade como cor');
 axis equal;
 
 
-figure;
+figure(8);
 x=history_xy(:,1);
 y=history_xy(:,2);
-vel=history(2:end,4);
+vel=history(:,4);
 heading=history_xy(:,3);
 hold on;
 % Criar "linha 3D achatada" com cor
@@ -438,7 +432,81 @@ if false
             imwrite(A,map,filename,'gif','WriteMode','append','DelayTime',0.05);
         end
     end
- end
+end
+
+
+    %s,x,y,kappa, nl,nr, vx
+ if save_traj
+
+    % Encontrar o loop fechado na trajetória (history_xy)
+    % Critério: ponto mais próximo do ponto inicial após um certo número de passos
+    % Critério: encontrar dois pontos sobrepostos (distância < threshold) e separados por uma distância mínima de índices
+    threshold = 0.05; % tolerância de sobreposição [m]
+    min_index_gap = 20; % distância mínima entre índices
+
+    min_idx = 1;
+    min_dist = inf;
+    idx1 = 1;
+    idx2 = 1;
+
+    exit_flag = false;
+    for lap =1:2
+
+        min_idx=idx2;
+        for i = min_idx:length(history_xy)-min_index_gap
+            for j = i+min_index_gap:length(history_xy)
+                dist = norm(history_xy(i,1:2) - history_xy(j,1:2));
+                if dist < threshold && dist < min_dist
+                    min_dist = dist;
+                    idx1 = i;
+                    idx2 = j;
+                    exit_flag = true;
+                    break;
+                end
+            end
+            if exit_flag
+                break;
+            end
+        end
+       fprintf('Loop fechado lap %d entre índices: %d e %d, distância: %.4f on (x,y / x,y) %.2f,%.2f / %.2f,%.2f\n',lap , idx1, idx2, min_dist, history_xy(idx1,1),history_xy(idx1,2),history_xy(idx2,1),history_xy(idx2,2));
+       min_dist = inf;
+    end
+
+    
+    
+    traj2.s = history(idx1:idx2,1)-history(idx1,1);
+    traj2.x = history_xy(idx1:idx2,1);
+    traj2.y = history_xy(idx1:idx2,2);
+
+
+    
+    % Calculate curvature (kappa) from trajectory points
+    dx = diff(traj2.x);
+    dy = diff(traj2.y);
+    ddx = diff(dx);
+    ddy = diff(dy);
+
+    % Pad to match length
+    dx = [dx; dx(end)];
+    dy = [dy; dy(end)];
+    ddx = [ddx; ddx(end); ddx(end)];
+    ddy = [ddy; ddy(end); ddy(end)];
+
+    traj2.kappa = (dx .* ddy - dy .* ddx) ./ ((dx.^2 + dy.^2).^(3/2));
+
+    traj2.vx = history(idx1:idx2,4); % velocidade longitudinal
+
+    % Salvar a trajetória em CSV: colunas [s, x, y, kappa, vx]
+    traj2_mat = [traj2.s, traj2.x, traj2.y, traj2.kappa, traj2.vx];
+    traj2_dir = './traj_out';
+    traj2_name = fullfile(traj2_dir, [traj_filename, '_raceline.csv']);
+   
+
+    csvwrite(traj2_name, traj2_mat);
+    fprintf('Trajetória salva em %s\n', traj2_name);
+
+
+end
 
 % %Plotar angulo de direção
 % figure;
@@ -532,12 +600,20 @@ function [left_x, left_y, right_x, right_y] = computeTrackBoundaries(track)
 end
 
 
-function  computeCost(history)
-x_last=history(end-1,:)
-x=history(end,:)
+function  computeLastCost(history,Ts)
 
+%L_stage_e = -8*(Ts*d_s) + 10*n^2+ 20*heading_u^2 %+300*Bexpr;
+N=width(history')
 
-S_cost=-8*(Ts*d_s)
+x_last=history(N-1,:);
+x=history(N,:);
+dx=x-x_last;
+
+S_cost=-8*(Ts*dx(1))
+N_cost=10*x(2)^2
+U_cost=20*x(3)^2
+
+Total_Cost=S_cost+N_cost+U_cost
     
 end
 

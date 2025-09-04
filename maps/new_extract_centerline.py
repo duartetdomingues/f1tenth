@@ -3,7 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 # === 1. Carregar mapa binário (0 = livre, 1 = obstáculo)
-map_files = "./maps/map_2025-07-16_15-28-18/map_output"
+map_files = "./maps/test_map/map_output"
 
 map_path = map_files + ".pgm"
 
@@ -79,15 +79,28 @@ def smooth_points(points, window_length=51, polyorder=3):
 
 smoothed_points = smooth_points(centerline_points, window_length=5, polyorder=3) """
 
-from scipy import interpolate
+# Calcular comprimento de arco dos pontos originais
+ds = np.sqrt(np.sum(np.diff(centerline_points, axis=0)**2, axis=1))
+s = np.insert(np.cumsum(ds), 0, 0)
+total_length = s[-1]
 
-# Criar spline paramétrica
-tck, u = interpolate.splprep([centerline_points[:, 0], centerline_points[:, 1]], s=5.0, per=True)  # per=True se for loop fechado
+# Amostrar pontos a cada 0.5m usando interpolação linear
+s_uniform = np.arange(0, total_length, 0.5)
+smoothed_points = np.zeros((len(s_uniform), 2))
+smoothed_points[:, 0] = np.interp(s_uniform, s, centerline_points[:, 0])
+smoothed_points[:, 1] = np.interp(s_uniform, s, centerline_points[:, 1])
 
-# Gerar mais pontos (ex: 500)
-unew = np.linspace(0, 1, 500)
-smoothed_points = np.zeros((500, 2))
-smoothed_points[:, 0], smoothed_points[:, 1] = interpolate.splev(unew, tck)
+print(f"Total de pontos amostrados a cada 0.5m: {len(smoothed_points)}")
+
+# === 7. Plot the smoothed points
+plt.figure(figsize=(10, 6))
+plt.imshow(occupancy, cmap='gray', origin='lower')
+plt.scatter(smoothed_points[:, 0], smoothed_points[:, 1], c='red', s=5,  label='Smoothed cycle')
+plt.scatter(smoothed_points[0, 0], smoothed_points[0, 1], c='blue', s=50, label='Start point')
+plt.legend()
+plt.title("Generated points from skeleton")
+plt.axis("equal")
+plt.show()
 
 from scipy.signal import savgol_filter
 import os
@@ -98,7 +111,7 @@ def smooth_points(points, window_length=51, polyorder=3):
     smoothed_y = savgol_filter(points[:, 1], window_length=window_length, polyorder=polyorder, mode='wrap')
     return np.column_stack([smoothed_x, smoothed_y])
 
-smoothed_points = smooth_points(smoothed_points, window_length=50, polyorder=3) 
+smoothed_points = smooth_points(smoothed_points, window_length=200, polyorder=3) 
 
 # === 7. Plot the smoothed points
 plt.figure(figsize=(10, 6))

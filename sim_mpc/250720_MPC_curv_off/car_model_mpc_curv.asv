@@ -1,4 +1,4 @@
-function [model , constraints, model_var] = car_model_mpc_curv(Ts, R, track)
+function [model , constraints, model_var] = car_model_mpc_curv(Ts, track)
 
 import casadi.*
 
@@ -71,6 +71,16 @@ n_r_lut =interpolant('n_r_lut_l','linear',{s_traj},nr_traj);
 
 %% Params
 
+weight_ds = MX.sym('weight_ds');
+weight_beta = MX.sym('weight_beta');
+weight_dalpha = MX.sym('weight_dalpha');
+weight_dthrottle = MX.sym('weight_dthrottle');
+
+safety_margin = MX.sym('safety_margin');
+
+p= [weight_ds; weight_beta; weight_dalpha; weight_dthrottle; safety_margin];
+np=length(p);
+
 % Bf = 7.6671;
 % Br = 7.1036;
 % Cf = 1.2628;
@@ -108,8 +118,6 @@ epsilon = 1e-3;
 rho_long = 1.2;       % escolheu-se ρ>1 → reduz Fx_max
 lambda_f = 0.9;       % 10 % de margem (frente)
 lambda_r = 0.9;       % idem (trás)
-
-q_beta  = 0.05;               % peso para o ângulo de deslize
 
 g=9.8;
 Lf= Wheelbase/2;
@@ -186,8 +194,8 @@ f_expl_func = Function('f_expl_func', {s; n; heading_u; vx; vy; yaw_rate; delta;
 term1 = (car_length / 2) * sin(abs(heading_u));  % sin(|µ|) com CasADi
 term2 = (track_width / 2) * cos(heading_u);
 
-b_left = n - term1 + term2;
-b_right= -n + term1 + term2;
+b_left = n - term1 + term2 + safety_margin;
+b_right= -n + term1 + term2 + safety_margin;
 % b_left=0.1;
 % b_right=0.1;
 
@@ -198,9 +206,9 @@ phi_R = (rho_long*Fm/2)^2 + Fy_r^2  -  (lambda_r*Dr)^2;
 %% Nonlinear constraints
  model.con_h_expr=[...     
      b_left;
-     b_right%;
-%     % phi_F;
-%     % phi_R        
+    b_right%;
+    phi_F;
+    phi_R        
   ];
 
  model.con_h_expr_0= model.con_h_expr;
@@ -220,7 +228,7 @@ constraints.ub_h = [nl_s; nr_s];
 
 
 %% State bounds
-constraints.throttle_min = 0;
+constraints.throttle_min = -0.3;
 constraints.throttle_max = 0.3;
 constraints.throttle_idx = 7; % idx zero-based
 
@@ -238,58 +246,38 @@ constraints.ddelta_max = servo_max_rate*Ts;  % maximum change rate of steering a
 constraints.dthrottle_min = -1*Ts;  % -10.0  % minimum throttle change rate
 constraints.dthrottle_max = 1*Ts;  % 10.0  % maximum throttle change rat
 
+
+
+%% Função de Custo
+% pesos
+
+
 %% ----- ângulos de deslize ---------------------------------------
 beta_dyn = atan2(vy,vx);
 beta_kin = atan( delta * Lr / (Lf+Lr) );
-Bexpr    = q_beta * (beta_dyn - beta_kin)^2;
+Bexpr    = weight_beta * (beta_dyn - beta_kin)^2;
 
 %% ----- termo de rate-penalty ------------------------------------
-R=diag([2.5, 2.0]); 
+R=diag([weight_dalpha, weight_dthrottle]);
 uexpr    = u.' * R * u;
 
-%% Funçao de Custo
 epsilon_cost = 1e-10;
 % L_stage = -8*(Ts*d_s) + 40*n^2+ 10*heading_u^2 + uexpr ;%+ Bexpr;     % (1×1) OK
 % L_stage_e = -8*(Ts*d_s) + 40*n^2+ 10*heading_u^2 ;%+ Bexpr;
 % L_stage =-8*(Ts*d_s+0.01) + 5*n^2+ 5*heading_u^2 +Bexpr%+ uexpr %+ 300*Bexpr;     % (1×1) OK
 % L_stage_e = -8*(Ts*d_s+0.01)+ 5*n^2+ 5*heading_u^2 +Bexpr;
-L_stage = 0.01/(10*d_s) %+ Bexpr;
-L_stage_e = 0.01/(10*d_s)%+ Bexpr;
+L_stage = weight_ds*0.01/(d_s) + Bexpr  + uexpr;
+L_stage_e = weight_ds*0.01/(d_s) + Bexpr;
 
 model.cost_expr_ext_cost = L_stage;
 model.cost_expr_ext_cost_0 = L_stage;
 model.cost_expr_ext_cost_e = L_stage_e;  % custo terminal = 0
 
-% % pesos de estabilização (ajusta à vontade)
-% Qreg = diag([0, 40, 40, 0, 10, 4,  0, 0]);   % penaliza n, mu, vy, r
-% Rreg = diag([0.5, 1.5]);                    % penaliza u
-% 
-% % den protegido
-% s_min =0;
-% s_max= track.s_traj(end);
-% kap  = kappa_lut( min( max( x(1), s_min ), s_max ) );
-% den  = 1 - kap*x(2);
-% den  = 0.5*(den + sqrt(den*den + 1e-6));    % clamp suave
-% sdot = ( x(4)*cos(x(3)) - x(5)*sin(x(3)) ) / den;
-% 
-% w_prog = 8;            % começa baixo
-% w_term = 4;
-% 
-% stage_cost = x.'*Qreg*x + u.'*Rreg*u - w_prog*(Ts*sdot);
-% term_cost  = x.'*Qreg*x            - w_term*x(1);
-% 
-% model.cost_expr_ext_cost_0 = stage_cost;
-% model.cost_expr_ext_cost   = stage_cost;
-% model.cost_expr_ext_cost_e = term_cost;
-
-
-%p=[];
-
 %% ACADOS Model
 model.f_expl_expr = f_expl;
 model.x = x;
 model.u = u;
-%model.p = p;
+model.p = p;
 %model.p_global = params;
 
 % Dinâmica implícita
@@ -306,6 +294,8 @@ model_var.x=x;
 model_var.nx=nx;
 model_var.u=u;
 model_var.nu=nu;
+model_var.u=p;
+model_var.np=np;
 model_var.kappa=kappa_lut;
 model_var.n_l_lut=n_l_lut;
 model_var.n_r_lut=n_r_lut;
