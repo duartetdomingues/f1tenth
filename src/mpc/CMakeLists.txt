@@ -7,6 +7,7 @@ endif()
 
 # find dependencies
 find_package(ament_cmake_auto REQUIRED)
+find_package(vesc_msgs REQUIRED)
 ament_auto_find_build_dependencies()
 
 message(STATUS "ACADOS_INSTALL_DIR = $ENV{ACADOS_INSTALL_DIR}")
@@ -18,6 +19,8 @@ include_directories(
   $ENV{ACADOS_INSTALL_DIR}/include/blasfeo/include
   $ENV{ACADOS_INSTALL_DIR}/include/hpipm/include
   ${CMAKE_CURRENT_SOURCE_DIR}/mpc_solver  # Add this line
+  ${CMAKE_CURRENT_SOURCE_DIR}/lib/nanoflann/include  # Add this line
+  ${vesc_msgs_INCLUDE_DIRS} 
 )
 
 
@@ -25,16 +28,19 @@ link_directories($ENV{ACADOS_INSTALL_DIR}/lib)
 
 set(BUILD_ACADOS_SOLVER_LIB ON CACHE INTERNAL "")
 add_subdirectory(mpc_solver ${CMAKE_CURRENT_BINARY_DIR}/mpc_solver EXCLUDE_FROM_ALL)
+
 #add_library(acados_solver_mpc_model SHARED ...)
 
 ament_auto_add_executable(mpc
   src/main.cpp
+  src/global_to_local.cpp
 )
 
 #add_subdirectory(mpc_solver)
 
 target_include_directories(${PROJECT_NAME} PUBLIC
   ${CMAKE_CURRENT_SOURCE_DIR}/mpc_solver
+  ${CMAKE_CURRENT_SOURCE_DIR}/lib/nanoflann/include
 )
 
 
@@ -57,6 +63,7 @@ target_link_libraries(${PROJECT_NAME}
   hpipm
   blasfeo
   acados_solver_mpc_model
+  ${vesc_msgs_LIBRARIES}
 )
 
 # Adicionar o diretório do mpc_solver

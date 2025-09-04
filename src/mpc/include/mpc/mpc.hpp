@@ -23,7 +23,11 @@
 #include <tf2_ros/buffer.h>
 #include <tf2_ros/transform_listener.h>
 
-#define N MPC_MODEL_N // Prediction horizon
+#include "mpc/global_to_local.hpp"
+
+#include "vesc_msgs/msg/vesc_state_stamped.hpp"
+
+// #define MPC_MODEL_N // Prediction horizon
 
 class MPCNode : public rclcpp::Node
 {
@@ -33,19 +37,24 @@ public:
 
     typedef struct
     {
-        double x;
-        double y;
-        double yaw;
-        double theta;
-        double v;
-    } State;
+        double s;
+        double n;
+        double u;
+        double vx;
+        double vy;
+        double r;
+        double delta;
+        double T;
+    } State; // x = [s; n; µ; vx; vy; r; δ; T]
+
 
     typedef struct
     {
         std::vector<double> x;
         std::vector<double> y;
-        std::vector<double> yaw;
-        std::vector<double> v;
+        std::vector<double> s;
+        std::vector<double> kappa;
+        std::vector<double> psi;
     } ReferenceTrajectory;
 
 private:
@@ -53,6 +62,7 @@ private:
     void PoseCallback(const geometry_msgs::msg::PoseStamped::SharedPtr msg);
     void ProcessPose(const geometry_msgs::msg::Pose& msg);
     void VescServoCallback(const std_msgs::msg::Float64::SharedPtr msg);
+    void VescStateCallback(const vesc_msgs::msg::VescStateStamped::SharedPtr msg);
     bool load_reference_trajectory_from_csv(const std::string &filename);
     void publish_reference_trajectory();
     void solveMPC();
@@ -69,9 +79,10 @@ private:
     std::array<rclcpp::Publisher<std_msgs::msg::Float64MultiArray>::SharedPtr, 5> state_vector_pub_;
     std::array<rclcpp::Publisher<std_msgs::msg::Float64MultiArray>::SharedPtr, 2> control_vector_pub_;
 
-    rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odomm_sub_;
+    rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odom_sub_;
     rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr pose_sub_;
     rclcpp::Subscription<std_msgs::msg::Float64>::SharedPtr vesc_servo_sub_;
+    rclcpp::Subscription<vesc_msgs::msg::VescStateStamped>::SharedPtr vesc_state_sub_;
 
     std::shared_ptr<tf2_ros::Buffer> tf_buffer_;
     std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
@@ -94,7 +105,7 @@ private:
     State current_state_;
     ReferenceTrajectory reference_trajectory_;
 
-    std::array<std::reference_wrapper<std::vector<double>>, 4> reference_trajectory_vector_;
+    KDTreeWithCloud *kd_tree;
 
     // ACADOS variables
     ocp_nlp_config *nlp_config_;

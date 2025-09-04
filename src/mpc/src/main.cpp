@@ -7,7 +7,6 @@ MPCNode::MPCNode() : Node("mpc_node"),
                      steering_angle_to_servo_gain(-0.840),
                      steering_angle_to_servo_offset(0.475),
                      frequency(10.0),
-                     reference_trajectory_vector_({reference_trajectory_.x, reference_trajectory_.y, reference_trajectory_.yaw, reference_trajectory_.v}),
                      tf_buffer_(std::make_shared<tf2_ros::Buffer>(this->get_clock())),
                      tf_listener_(std::make_shared<tf2_ros::TransformListener>(*tf_buffer_))
 {
@@ -41,14 +40,14 @@ MPCNode::MPCNode() : Node("mpc_node"),
     simulation_trajectory_pub_ = this->create_publisher<nav_msgs::msg::Path>("mpc/simulation_traj", rclcpp::QoS(rclcpp::KeepLast(1)).transient_local());
     state_pub_ = this->create_publisher<std_msgs::msg::Float64MultiArray>("mpc/state_array", 10);
     control_pub_ = this->create_publisher<std_msgs::msg::Float64MultiArray>("mpc/control_array", 10);
-    
+
     for (int i = 0; i < 2; i++)
         control_vector_pub_[i] = this->create_publisher<std_msgs::msg::Float64MultiArray>("mpc/predict_u" + std::to_string(i), 10);
-        
+
     for (int i = 0; i < 5; i++)
         state_vector_pub_[i] = this->create_publisher<std_msgs::msg::Float64MultiArray>("mpc/predict_x" + std::to_string(i), 10);
 
-    odomm_sub_ = this->create_subscription<nav_msgs::msg::Odometry>(
+    odom_sub_ = this->create_subscription<nav_msgs::msg::Odometry>(
         odom_topic, 10, std::bind(&MPCNode::OdomCallback, this, std::placeholders::_1));
 
     if (use_pose_topic_)
@@ -56,8 +55,12 @@ MPCNode::MPCNode() : Node("mpc_node"),
         pose_sub_ = this->create_subscription<geometry_msgs::msg::PoseStamped>(
             pose_topic_, 10, std::bind(&MPCNode::PoseCallback, this, std::placeholders::_1));
     }
+
     vesc_servo_sub_ = this->create_subscription<std_msgs::msg::Float64>(
         "/vesc/servo_position_command", 10, std::bind(&MPCNode::VescServoCallback, this, std::placeholders::_1));
+
+    vesc_state_sub_ = this->create_subscription<vesc_msgs::msg::VescStateStamped>(
+        "/vesc/core", 10, std::bind(&MPCNode::VescStateCallback, this, std::placeholders::_1));
 
     // Load reference trajectory
     if (!load_reference_trajectory_from_csv(traj_file))
@@ -65,7 +68,9 @@ MPCNode::MPCNode() : Node("mpc_node"),
         RCLCPP_ERROR(this->get_logger(), "Failed to load reference trajectory.");
         rclcpp::shutdown();
     }
-    publish_reference_trajectory();
+    //publish_reference_trajectory();
+
+    kd_tree = prepare_kd_tree(reference_trajectory_.x, reference_trajectory_.y);
 
     // Create ACADOS solver capsule
     if (mpc_model_acados_create(capsule) != 0)
@@ -74,31 +79,29 @@ MPCNode::MPCNode() : Node("mpc_node"),
         rclcpp::shutdown();
     }
 
-    
-
     // Initialize ACADOS solver
     nlp_config_ = mpc_model_acados_get_nlp_config(capsule);
     nlp_dims_ = mpc_model_acados_get_nlp_dims(capsule);
     nlp_in_ = mpc_model_acados_get_nlp_in(capsule);
     nlp_out_ = mpc_model_acados_get_nlp_out(capsule);
     nlp_solver_ = mpc_model_acados_get_nlp_solver(capsule);
-    nlp_opts_ = mpc_model_acados_get_nlp_opts(capsule); 
+    nlp_opts_ = mpc_model_acados_get_nlp_opts(capsule);
 
     // Set weights for the cost function
-    //std::vector<double> cost_weights = {1.0, 1.0, 0.0, 0.0, 0.0, 0.0}; // Example weights for x, y, sin(psi), cos(psi), steering, velocity
-    std::vector<double> cost_weights = {10.0, 10.0, 0.0, 0.0, 1.0, 1.0}; // Example weights for x, y, sin(psi), cos(psi), steering, velocity
+    // std::vector<double> cost_weights = {1.0, 1.0, 0.0, 0.0, 0.0, 0.0}; // Example weights for x, y, sin(psi), cos(psi), steering, velocity
+    /* std::vector<double> cost_weights = {10.0, 10.0, 0.0, 0.0, 1.0, 1.0}; // Example weights for x, y, sin(psi), cos(psi), steering, velocity
     Eigen::MatrixXd W = Eigen::MatrixXd::Zero(6, 6);
     W.diagonal() << cost_weights[0], cost_weights[1], cost_weights[2], cost_weights[3], cost_weights[4], cost_weights[5];
-    for (size_t k = 0; k < N; k++)
+    for (size_t k = 0; k < MPC_MODEL_N; k++)
     {
         ocp_nlp_cost_model_set(nlp_config_, nlp_dims_, nlp_in_, k, "W", W.data());
-    }
+    } */
     // Set final cost weights
     // std::vector<double> final_cost_weights = {1.0, 1.0, 0.0, 0.0}; // Example weights for x, y, sin(psi), cos(psi), steering, velocity
     /* std::vector<double> final_cost_weights = {10.0, 10.0, 1.0, 1.0}; // Example weights for x, y, sin(psi), cos(psi), steering, velocity
     Eigen::MatrixXd Wf = Eigen::MatrixXd::Zero(4, 4);
     Wf.diagonal() << final_cost_weights[0], final_cost_weights[1], final_cost_weights[2], final_cost_weights[3];
-    ocp_nlp_cost_model_set(nlp_config_, nlp_dims_, nlp_in_, N, "W", Wf.data()); */
+    ocp_nlp_cost_model_set(nlp_config_, nlp_dims_, nlp_in_, MPC_MODEL_N, "W", Wf.data()); */
 
     // nlp_config_ = ocp_nlp_config_create(nlp_dims_);
     // nlp_dims_ = ocp_nlp_dims_create(nlp_config_);
@@ -110,16 +113,16 @@ MPCNode::MPCNode() : Node("mpc_node"),
     // precompute
     // ocp_nlp_precompute(nlp_solver_, nlp_in_, nlp_out_);
 
-    double p = (1.0 / frequency);  // Ts é o teu tempo de amostragem
+    double p = (1.0 / frequency); // Ts é o teu tempo de amostragem
 
-    //ocp_nlp_set_all(nlp_solver_, nlp_in_, nlp_out_, "p", &p); // Set the parameter p
+    // ocp_nlp_set_all(nlp_solver_, nlp_in_, nlp_out_, "p", &p); // Set the parameter p
 
     int idx = 0; // Index for the parameter
-    for (int i = 0; i < N; i++) {
+    for (int i = 0; i < MPC_MODEL_N; i++)
+    {
         ocp_nlp_in_set_params_sparse(nlp_config_, nlp_dims_, nlp_in_, i, &idx, &p, 1);
     }
 
-   
     // Set up a timer to solve MPC at a fixed frequency
     timer_ = this->create_wall_timer(
         std::chrono::milliseconds(static_cast<int>(1000 / frequency)),
@@ -128,38 +131,46 @@ MPCNode::MPCNode() : Node("mpc_node"),
 
 MPCNode::~MPCNode()
 {
+    delete kd_tree;
     mpc_model_acados_free(capsule);
 }
 
 void MPCNode::solveMPC()
 {
-    if (N <= 0)
+    if (MPC_MODEL_N <= 0)
     {
         RCLCPP_ERROR(this->get_logger(), "Invalid number of stages in MPC model.");
         return;
     }
 
-    if (std::isnan(current_state_.x) || std::isnan(current_state_.y) || reference_trajectory_.x.empty() || reference_trajectory_.y.empty())
+   /*  if (std::isnan(current_state_.x) || std::isnan(current_state_.y) || reference_trajectory_.x.empty() || reference_trajectory_.y.empty())
     {
         RCLCPP_WARN(this->get_logger(), "State or reference trajectory is empty. Skipping MPC solve.");
         return;
-    }
+    } */
 
     // Get the reference trajectory to horizont
-    set_trajectory_step();
+    // set_trajectory_step();
+
+    // Update states
+    // update_states_step();
 
     // Set initial state constraints
     std::vector<double> current_state_vector_ = {
-        current_state_.x,
-        current_state_.y,
-        current_state_.yaw,
-        current_state_.theta,
-        current_state_.v};
+        current_state_.s,
+        current_state_.n,
+        current_state_.u,
+        current_state_.vx,
+        current_state_.vy,
+        current_state_.r,
+        current_state_.delta,
+        current_state_.T
+    };
 
     ocp_nlp_constraints_model_set(nlp_config_, nlp_dims_, nlp_in_, nlp_out_, 0, "lbx", current_state_vector_.data());
     ocp_nlp_constraints_model_set(nlp_config_, nlp_dims_, nlp_in_, nlp_out_, 0, "ubx", current_state_vector_.data());
 
-     // Publish state array
+    // Publish state array
     std_msgs::msg::Float64MultiArray state_array_msg;
     state_array_msg.data = {current_state_vector_[0],
                             current_state_vector_[1],
@@ -170,29 +181,28 @@ void MPCNode::solveMPC()
 
     // Solve the MPC problem
     int status = ocp_nlp_solve(nlp_solver_, nlp_in_, nlp_out_);
-    //int status = mpc_model_acados_solve(capsule);
-    // mpc_model_acados_print_stats(capsule);
-    /* std::vector<double> xtraj((N + 1) * 6);
-    std::vector<double> utraj(N * 2);
-    for (int ii = 0; ii <= N; ii++)
+    // int status = mpc_model_acados_solve(capsule);
+    //  mpc_model_acados_print_stats(capsule);
+    /* std::vector<double> xtraj((MPC_MODEL_N + 1) * 6);
+    std::vector<double> utraj(MPC_MODEL_N * 2);
+    for (int ii = 0; ii <= MPC_MODEL_N; ii++)
         ocp_nlp_out_get(nlp_config_, nlp_dims_, nlp_out_, ii, "x", &xtraj[ii*6]);
-    for (int ii = 0; ii < N; ii++)
+    for (int ii = 0; ii < MPC_MODEL_N; ii++)
         ocp_nlp_out_get(nlp_config_, nlp_dims_, nlp_out_, ii, "u", &utraj[ii*2]);
 
     printf("\n--- xtraj ---\n");
-    d_print_exp_tran_mat( 6, N+1, xtraj.data(), 6);
+    d_print_exp_tran_mat( 6, MPC_MODEL_N+1, xtraj.data(), 6);
     printf("\n--- utraj ---\n");
-    d_print_exp_tran_mat( 2, N, utraj.data(), 2 ); */
+    d_print_exp_tran_mat( 2, MPC_MODEL_N, utraj.data(), 2 ); */
     if (status != 0)
     {
         RCLCPP_ERROR(this->get_logger(), "ACADOS solver failed with status %d", status);
         return;
     }
-    else 
+    else
     {
         RCLCPP_INFO(this->get_logger(), "ACADOS solver succeeded with status %d", status);
     }
-    
 
     // Get control output
     std::array<double, 2> control_output;
@@ -220,8 +230,9 @@ void MPCNode::solveMPC()
     control_pub_->publish(control_array_msg);
 
     // Publish control vector
-    std::vector<double> predict_vector_u0(N), predict_vector_u1(N);
-    for (int ii = 0; ii < N; ii++) {
+    std::vector<double> predict_vector_u0(MPC_MODEL_N), predict_vector_u1(MPC_MODEL_N);
+    for (int ii = 0; ii < MPC_MODEL_N; ii++)
+    {
         std::array<double, 2> control_vector;
         ocp_nlp_out_get(nlp_config_, nlp_dims_, nlp_out_, ii, "u", control_vector.data());
         predict_vector_u0[ii] = control_vector[0];
@@ -234,44 +245,45 @@ void MPCNode::solveMPC()
     control_vector_pub_[1]->publish(predict_u1_msg);
 
     // Publish state vector
-    // Create a vector of 5 vectors, each with N+1 elements
-    std::vector<std::vector<double>> predict_vector_x(5, std::vector<double>(N + 1));
-    for (int ii = 0; ii <= N; ii++) {
+    // Create a vector of 5 vectors, each with MPC_MODEL_N+1 elements
+    std::vector<std::vector<double>> predict_vector_x(5, std::vector<double>(MPC_MODEL_N + 1));
+    for (int ii = 0; ii <= MPC_MODEL_N; ii++)
+    {
         std::array<double, 5> state_vector;
         ocp_nlp_out_get(nlp_config_, nlp_dims_, nlp_out_, ii, "x", state_vector.data());
         // Fill predict_vector_x: [x, y, yaw, theta, v]
-        for (int j = 0; j < 5; j++) {
+        for (int j = 0; j < 5; j++)
+        {
             predict_vector_x[j][ii] = state_vector[j];
         }
     }
     std::vector<std_msgs::msg::Float64MultiArray> state_vector_msgs(5);
-    for (int i = 0; i < 5; i++) {
+    for (int i = 0; i < 5; i++)
+    {
         state_vector_msgs[i].data = predict_vector_x[i];
         state_vector_pub_[i]->publish(state_vector_msgs[i]);
     }
 
-   
+    /*  // Publish simulation trajectory
+     nav_msgs::msg::Path simulation_path;
+     simulation_path.header.stamp = this->get_clock()->now();
+     simulation_path.header.frame_id = frame_id_;
+     for (int ii = 0; ii <= MPC_MODEL_N; ii++)
+     {
+         geometry_msgs::msg::PoseStamped pose;
+         pose.header = simulation_path.header;
+         pose.pose.position.x = predict_vector_x[0][ii];
+         pose.pose.position.y = predict_vector_x[1][ii];
+         tf2::Quaternion q;
+         q.setRPY(0, 0, predict_vector_x[2][ii]);
+         pose.pose.orientation = tf2::toMsg(q);
+         simulation_path.poses.push_back(pose);
+     }
+     simulation_trajectory_pub_->publish(simulation_path); */
 
-   /*  // Publish simulation trajectory
-    nav_msgs::msg::Path simulation_path;
-    simulation_path.header.stamp = this->get_clock()->now();
-    simulation_path.header.frame_id = frame_id_;
-    for (int ii = 0; ii <= N; ii++)
-    {
-        geometry_msgs::msg::PoseStamped pose;
-        pose.header = simulation_path.header;
-        pose.pose.position.x = predict_vector_x[0][ii];
-        pose.pose.position.y = predict_vector_x[1][ii];
-        tf2::Quaternion q;
-        q.setRPY(0, 0, predict_vector_x[2][ii]);
-        pose.pose.orientation = tf2::toMsg(q);
-        simulation_path.poses.push_back(pose);
-    }
-    simulation_trajectory_pub_->publish(simulation_path); */
-    
 } // RCLCPP_INFO(this->get_logger(), "Current steering angle: %f", current_state_.steering_angle);
 
-void MPCNode::set_trajectory_step()
+/* void MPCNode::set_trajectory_step()
 {
     // 1. Find the closest point to the current position
     std::vector<double> distances(reference_trajectory_.x.size());
@@ -280,15 +292,15 @@ void MPCNode::set_trajectory_step()
         distances[i] = std::sqrt(std::pow(reference_trajectory_.x[i] - current_state_.x, 2) +
                                  std::pow(reference_trajectory_.y[i] - current_state_.y, 2));
     }
-    
+
     auto idx_ref_start = std::distance(distances.begin(), std::min_element(distances.begin(), distances.end()));
 
     // 2. Compute reference points by walking along the trajectory
-    std::vector<double> x_ref_step(N), y_ref_step(N), psi_ref(N), v_ref(N);
+    std::vector<double> x_ref_step(MPC_MODEL_N), y_ref_step(MPC_MODEL_N), psi_ref(MPC_MODEL_N), v_ref(MPC_MODEL_N);
     size_t idx = idx_ref_start;
 
     double time_accum = 0.0;
-    for (size_t i = 0; i < N; ++i)
+    for (size_t i = 0; i < MPC_MODEL_N; ++i)
     {
         double target_time = i / frequency; // time in seconds
         while (time_accum < target_time)
@@ -312,7 +324,7 @@ void MPCNode::set_trajectory_step()
     nav_msgs::msg::Path ref_path;
     ref_path.header.stamp = this->get_clock()->now();
     ref_path.header.frame_id = frame_id_;
-    for (size_t i = 0; i < N; ++i)
+    for (size_t i = 0; i < MPC_MODEL_N; ++i)
     {
         geometry_msgs::msg::PoseStamped pose;
         pose.header = ref_path.header;
@@ -326,7 +338,7 @@ void MPCNode::set_trajectory_step()
     ref_path_pub_->publish(ref_path);
 
     // 5. Set up the ACADOS solver
-    for (size_t k = 0; k < N; k++)
+    for (size_t k = 0; k < MPC_MODEL_N; k++)
     {
         std::vector<double> yref_k = {
             x_ref_step[k],
@@ -344,8 +356,8 @@ void MPCNode::set_trajectory_step()
         y_ref_step[9],
         std::sin(psi_ref[9]),
         std::cos(psi_ref[9])};
-    ocp_nlp_cost_model_set(nlp_config_, nlp_dims_, nlp_in_, N, "y_ref", yref_N.data());
-}
+    ocp_nlp_cost_model_set(nlp_config_, nlp_dims_, nlp_in_, MPC_MODEL_N, "y_ref", yref_N.data());
+} */
 
 bool MPCNode::load_reference_trajectory_from_csv(const std::string &filename)
 {
@@ -357,31 +369,30 @@ bool MPCNode::load_reference_trajectory_from_csv(const std::string &filename)
     }
 
     std::string line;
-    std::getline(file, line); 
+    std::getline(file, line);
     // Check if the first line is a header
-    if (line.find("x,y,yaw,v") == std::string::npos)
+    if (line.find("s,x,y,kappa") == std::string::npos)
     {
-        RCLCPP_ERROR(this->get_logger(), "Invalid file format. Expected header: x,y,yaw,v");
+        RCLCPP_ERROR(this->get_logger(), "Invalid file format. Expected header: s,x,y,kappa");
         return false;
     }
-
 
     while (std::getline(file, line))
     {
         std::stringstream ss(line);
-        std::string x_str, y_str, yaw_str, v_str;
+        std::string s_str, x_str, y_str, kappa_str;
 
+        std::getline(ss, s_str, ',');
         std::getline(ss, x_str, ',');
         std::getline(ss, y_str, ',');
-        std::getline(ss, yaw_str, ',');
-        std::getline(ss, v_str, ',');
+        std::getline(ss, kappa_str, ',');
 
         try
         {
             reference_trajectory_.x.push_back(std::stod(x_str));
             reference_trajectory_.y.push_back(std::stod(y_str));
-            reference_trajectory_.yaw.push_back(std::stod(yaw_str));
-            reference_trajectory_.v.push_back(std::stod(v_str));
+            reference_trajectory_.s.push_back(std::stod(s_str));
+            reference_trajectory_.kappa.push_back(std::stod(kappa_str));
         }
         catch (const std::exception &e)
         {
@@ -390,6 +401,9 @@ bool MPCNode::load_reference_trajectory_from_csv(const std::string &filename)
         }
     }
 
+    // Chama a função de integração acumulada
+    cumtrapz(reference_trajectory_.s, reference_trajectory_.kappa, reference_trajectory_.psi);
+
     file.close();
     RCLCPP_INFO(this->get_logger(), "Loaded reference trajectory %s.", filename.c_str());
     return true;
@@ -397,7 +411,7 @@ bool MPCNode::load_reference_trajectory_from_csv(const std::string &filename)
 
 void MPCNode::publish_reference_trajectory()
 {
-    nav_msgs::msg::Path ref_path;
+    /* nav_msgs::msg::Path ref_path;
     ref_path.header.stamp = this->get_clock()->now();
     ref_path.header.frame_id = frame_id_;
     for (size_t i = 0; i < reference_trajectory_.x.size(); ++i)
@@ -411,47 +425,46 @@ void MPCNode::publish_reference_trajectory()
         pose.pose.orientation = tf2::toMsg(q);
         ref_path.poses.push_back(pose);
     }
-    reference_trajectory_pub_->publish(ref_path);
+    reference_trajectory_pub_->publish(ref_path); */
 }
 
 void MPCNode::OdomCallback(const nav_msgs::msg::Odometry::SharedPtr msg)
 {
-    
-    current_state_.v = msg->twist.twist.linear.x;
 
-    if (!use_pose_topic_)
+    current_state_.vx = msg->twist.twist.linear.x;
+    current_state_.vy = msg->twist.twist.linear.y;
+
+    /* if (!use_pose_topic_)
     {
-        //ProcessPose(msg->pose.pose);
-     
+        // ProcessPose(msg->pose.pose);
 
-    geometry_msgs::msg::PoseStamped odom_pose;
-    odom_pose.header = msg->header;
-    odom_pose.pose = msg->pose.pose;
-    
-    geometry_msgs::msg::TransformStamped map_to_odom;
-    try
-    {
-        map_to_odom = tf_buffer_->lookupTransform("map", "odom", tf2::TimePointZero);
-    }
-    catch (const tf2::TransformException &ex)
-    {
-        RCLCPP_WARN(this->get_logger(), "Could not transform 'map' to 'odom': %s", ex.what());
-        return;
-    }
+        geometry_msgs::msg::PoseStamped odom_pose;
+        odom_pose.header = msg->header;
+        odom_pose.pose = msg->pose.pose;
 
-    geometry_msgs::msg::PoseStamped map_pose;
-    tf2::doTransform(odom_pose, map_pose, map_to_odom);
+        geometry_msgs::msg::TransformStamped map_to_odom;
+        try
+        {
+            map_to_odom = tf_buffer_->lookupTransform("map", "odom", tf2::TimePointZero);
+        }
+        catch (const tf2::TransformException &ex)
+        {
+            RCLCPP_WARN(this->get_logger(), "Could not transform 'map' to 'odom': %s", ex.what());
+            return;
+        }
 
-    current_state_.x = map_pose.pose.position.x;
-    current_state_.y = map_pose.pose.position.y;
-    tf2::Quaternion q(
-        map_pose.pose.orientation.x,
-        map_pose.pose.orientation.y,
-        map_pose.pose.orientation.z,
-        map_pose.pose.orientation.w);
-    current_state_.yaw = tf2::getYaw(q); 
-    } 
-       
+        geometry_msgs::msg::PoseStamped map_pose;
+        tf2::doTransform(odom_pose, map_pose, map_to_odom);
+
+        current_state_.x = map_pose.pose.position.x;
+        current_state_.y = map_pose.pose.position.y;
+        tf2::Quaternion q(
+            map_pose.pose.orientation.x,
+            map_pose.pose.orientation.y,
+            map_pose.pose.orientation.z,
+            map_pose.pose.orientation.w);
+        current_state_.yaw = tf2::getYaw(q);
+    } */
 }
 
 void MPCNode::PoseCallback(const geometry_msgs::msg::PoseStamped::SharedPtr msg)
@@ -459,26 +472,39 @@ void MPCNode::PoseCallback(const geometry_msgs::msg::PoseStamped::SharedPtr msg)
     ProcessPose(msg->pose);
 }
 
-void MPCNode::ProcessPose(const geometry_msgs::msg::Pose& msg)
+void MPCNode::ProcessPose(const geometry_msgs::msg::Pose &msg)
 {
-    current_state_.x = msg.position.x;
-    current_state_.y = msg.position.y;
+    double x = msg.position.x;
+    double y = msg.position.y;
 
     tf2::Quaternion q(
         msg.orientation.x,
         msg.orientation.y,
         msg.orientation.z,
         msg.orientation.w);
-    current_state_.yaw = tf2::getYaw(q);
+    double psi = tf2::getYaw(q);
+
+    double X_s, Y_s, psi_s;
+
+    global_to_local_pose(kd_tree->index, reference_trajectory_.s, reference_trajectory_.x,
+                         reference_trajectory_.y, reference_trajectory_.psi,
+                         x, y, psi,
+                         current_state_.s, current_state_.n, current_state_.u,
+                         X_s, Y_s, psi_s);
 }
 
 void MPCNode::VescServoCallback(const std_msgs::msg::Float64::SharedPtr msg)
 {
     // Extract servo position from VESC message
-    current_state_.theta = (msg->data - steering_angle_to_servo_offset) / steering_angle_to_servo_gain;
+    current_state_.delta = (msg->data - steering_angle_to_servo_offset) / steering_angle_to_servo_gain;
     // RCLCPP_INFO(this->get_logger(), "Current servo position: %f", current_state_.theta);
 }
 
+void MPCNode::VescStateCallback(const vesc_msgs::msg::VescStateStamped::SharedPtr msg)
+{
+    // Process VESC state message
+    current_state_.T = msg->state.duty_cycle;
+}
 
 int main(int argc, char **argv)
 {
