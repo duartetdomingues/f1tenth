@@ -18,6 +18,11 @@ MPCNode::MPCNode() : Node("mpc_node"),
     this->declare_parameter<std::string>("traj_file", "traj/pts/centerline_map_2025-07-16_15-28-18.csv");
     this->declare_parameter<std::string>("frame_id", "odom");
     this->declare_parameter<std::string>("pose_topic", "/pose");
+    this->declare_parameter<double>("cost_weights/position_x", 10.0); // Weight for position x
+    this->declare_parameter<double>("cost_weights/position_y", 10.0); // Weight for position y
+    this->declare_parameter<double>("cost_weights/orientation", 1.0); // Weight for orientation
+    this->declare_parameter<double>("cost_weights/velocity", 1.0); // Weight for velocity
+    this->declare_parameter<double>("cost_weights/steering", 1.0); // Weight for steering
 
     // Retrieve parameters
     std::string odom_topic = this->get_parameter("odom_topic").as_string();
@@ -34,7 +39,7 @@ MPCNode::MPCNode() : Node("mpc_node"),
     }
 
     // Publishers and Subscribers
-    control_vesc_pub_ = this->create_publisher<ackermann_msgs::msg::AckermannDriveStamped>("ackermann_cmd", 10);
+    control_vesc_pub_ = this->create_publisher<ackermann_msgs::msg::AckermannDriveStamped>("autonomous_control", 10);
     solved_time_pub_ = this->create_publisher<std_msgs::msg::Float64>("mpc/solved_time", 10);
     ref_path_pub_ = this->create_publisher<nav_msgs::msg::Path>("mpc/ref_path", 10);
     reference_trajectory_pub_ = this->create_publisher<nav_msgs::msg::Path>("mpc/ref_traj", rclcpp::QoS(rclcpp::KeepLast(1)).transient_local());
@@ -86,7 +91,15 @@ MPCNode::MPCNode() : Node("mpc_node"),
 
     // Set weights for the cost function
     //std::vector<double> cost_weights = {1.0, 1.0, 0.0, 0.0, 0.0, 0.0}; // Example weights for x, y, sin(psi), cos(psi), steering, velocity
-    std::vector<double> cost_weights = {10.0, 10.0, 0.0, 0.0, 1.0, 1.0}; // Example weights for x, y, sin(psi), cos(psi), steering, velocity
+    std::vector<double> cost_weights = {10.0, 10.0, 1.0, 1.0, 1.0, 10.0}; // Example weights for x, y, sin(psi), cos(psi), steering, velocity
+
+    this->get_parameter("cost_weights/position_x", cost_weights[0]);
+    this->get_parameter("cost_weights/position_y", cost_weights[1]);
+    this->get_parameter("cost_weights/orientation", cost_weights[2]);
+    this->get_parameter("cost_weights/orientation", cost_weights[3]);
+    this->get_parameter("cost_weights/velocity", cost_weights[4]);
+    this->get_parameter("cost_weights/steering", cost_weights[5]);
+
     Eigen::MatrixXd W = Eigen::MatrixXd::Zero(6, 6);
     W.diagonal() << cost_weights[0], cost_weights[1], cost_weights[2], cost_weights[3], cost_weights[4], cost_weights[5];
     for (size_t k = 0; k < N; k++)
@@ -188,10 +201,10 @@ void MPCNode::solveMPC()
         RCLCPP_ERROR(this->get_logger(), "ACADOS solver failed with status %d", status);
         return;
     }
-    else 
+    /*  else 
     {
         RCLCPP_INFO(this->get_logger(), "ACADOS solver succeeded with status %d", status);
-    }
+    } */
     
 
     // Get control output
@@ -252,7 +265,7 @@ void MPCNode::solveMPC()
 
    
 
-   /*  // Publish simulation trajectory
+    // Publish simulation trajectory
     nav_msgs::msg::Path simulation_path;
     simulation_path.header.stamp = this->get_clock()->now();
     simulation_path.header.frame_id = frame_id_;
@@ -267,7 +280,7 @@ void MPCNode::solveMPC()
         pose.pose.orientation = tf2::toMsg(q);
         simulation_path.poses.push_back(pose);
     }
-    simulation_trajectory_pub_->publish(simulation_path); */
+    simulation_trajectory_pub_->publish(simulation_path);
     
 } // RCLCPP_INFO(this->get_logger(), "Current steering angle: %f", current_state_.steering_angle);
 
