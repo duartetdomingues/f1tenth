@@ -68,7 +68,7 @@ MPCNode::MPCNode() : Node("mpc_node"),
         RCLCPP_ERROR(this->get_logger(), "Failed to load reference trajectory.");
         rclcpp::shutdown();
     }
-    //publish_reference_trajectory();
+    // publish_reference_trajectory();
 
     kd_tree = prepare_kd_tree(reference_trajectory_.x, reference_trajectory_.y);
 
@@ -133,7 +133,7 @@ MPCNode::MPCNode() : Node("mpc_node"),
     int print_level = 0;
     ocp_nlp_solver_opts_set(nlp_config_, nlp_opts_, "print_level", &print_level);
 
-    // Init the states 
+    // Init the states
     current_state_.s = 0.1;
     current_state_.n = 0.1;
     current_state_.u = 0.1;
@@ -167,7 +167,7 @@ void MPCNode::solveMPC()
     {
         RCLCPP_WARN(this->get_logger(), "State or reference trajectory is empty. Skipping MPC solve.");
         return;
-    } 
+    }
 
     // Get the reference trajectory to horizont
     // set_trajectory_step();
@@ -184,8 +184,7 @@ void MPCNode::solveMPC()
         current_state_.vy,
         current_state_.r,
         current_state_.delta,
-        current_state_.T
-    };
+        current_state_.T};
 
     ocp_nlp_constraints_model_set(nlp_config_, nlp_dims_, nlp_in_, nlp_out_, 0, "lbx", current_state_vector_.data());
     ocp_nlp_constraints_model_set(nlp_config_, nlp_dims_, nlp_in_, nlp_out_, 0, "ubx", current_state_vector_.data());
@@ -214,26 +213,31 @@ void MPCNode::solveMPC()
     d_print_exp_tran_mat( 6, MPC_MODEL_N+1, xtraj.data(), 6);
     printf("\n--- utraj ---\n");
     d_print_exp_tran_mat( 2, MPC_MODEL_N, utraj.data(), 2 ); */
+
+    // Get control output
+    std::array<double, 2> control_output;
+    double solved_time;
+
     if (status != 0)
     {
         RCLCPP_ERROR(this->get_logger(), "ACADOS solver failed with status %d", status);
+        solved_time = -1.0;
         return;
     }
     else
     {
         RCLCPP_INFO(this->get_logger(), "ACADOS solver succeeded with status %d", status);
+
+        ocp_nlp_out_get(nlp_config_, nlp_dims_, nlp_out_, 0, "u", control_output.data()); // Retrieve control output
+
+        ocp_nlp_get(nlp_solver_, "time_tot", &solved_time);
     }
-
-    // Get control output
-    std::array<double, 2> control_output;
-    ocp_nlp_out_get(nlp_config_, nlp_dims_, nlp_out_, 0, "u", control_output.data()); // Retrieve control output
-
-    double solved_time;
-    ocp_nlp_get(nlp_solver_, "time_tot", &solved_time);
 
     std_msgs::msg::Float64 solved_time_msg;
     solved_time_msg.data = solved_time;
     solved_time_pub_->publish(solved_time_msg);
+
+    RCLCPP_INFO(this->get_logger(), "Solved time: %.2f milliseconds", solved_time*1000);
 
     ackermann_msgs::msg::AckermannDriveStamped control_vesc_msg;
     control_vesc_msg.header.stamp = this->get_clock()->now();
