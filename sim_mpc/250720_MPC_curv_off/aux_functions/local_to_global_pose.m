@@ -16,7 +16,7 @@ function [x,y,psi ,X_s, Y_s,theta_s]=local_to_global_pose(track, model_var,x)
     theta_s = interp1(track.s_traj, theta_traj, s_val, 'linear', 'extrap');
     
 
-    x = X_s - n_val * sin(theta_s);
-    y = Y_s + n_val * cos(theta_s);
+    x = X_s + n_val * cos(theta_s + pi/2);
+    y = Y_s + n_val * sin(theta_s + pi/2);
     psi = theta_s + mu_val;
 end

@@ -37,14 +37,28 @@ function [solver, model_var] = setup_ocp_mpc_curv(N,p ,Ts, track)
     ocp.constraints.lbx_0 = [constraints.heading_min;constraints.delta_min; constraints.throttle_min];
     ocp.constraints.ubx_0 = [constraints.heading_max;constraints.delta_max; constraints.throttle_max];
 
+    % ocp.constraints.idxbx = [constraints.heading_idx];
+    % ocp.constraints.lbx = [constraints.heading_min];
+    % ocp.constraints.ubx = [constraints.heading_max];
+    % 
+    % ocp.constraints.idxbx_e = [constraints.heading_idx];
+    % ocp.constraints.lbx_e = [constraints.heading_min];
+    % ocp.constraints.ubx_e = [constraints.heading_max];
+    % 
+    % ocp.constraints.idxbx_0 = [constraints.heading_idx];
+    % ocp.constraints.lbx_0 = [constraints.heading_min];
+    % ocp.constraints.ubx_0 = [constraints.heading_max];
+
 
     if (~isempty(ocp.model.con_h_expr))
         ocp.constraints.lh = constraints.lb_h;
-        ocp.constraints.uh = constraints.ub_h;
+        ocp.constraints.uh = constraints.ub_h;  
+    end
+
+    if (~isempty(ocp.model.con_h_expr_0))
         ocp.constraints.lh_0 = constraints.lb_h;
         ocp.constraints.uh_0 = constraints.ub_h; 
     end
-
 
 
     %servo_max_rate = p(2);       % velocidade angular máxima (rad/s)

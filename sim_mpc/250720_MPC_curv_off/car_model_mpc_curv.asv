@@ -132,7 +132,7 @@ Fn_f = Lr/(Lf+Lr) *mass *g;
 Fn_r = Lf/(Lf+Lr) *mass *g;   
 
 %% Slip angles at the wheels
-v0=0.5;
+v0=0.001;
 alfa_f = atan2(-vy - Lf* yaw_rate,vx+v0)+delta; 
 alfa_r = atan2(-vy + Lr* yaw_rate,vx+v0); 
 
@@ -206,12 +206,12 @@ phi_R = (rho_long*Fm/2)^2 + Fy_r^2  -  (lambda_r*Dr)^2;
 %% Nonlinear constraints
  model.con_h_expr=[...     
      b_left;
-    b_right%;
-    phi_F;
-    phi_R        
+     b_right%;
+    % phi_F;
+    % phi_R        
   ];
 
- model.con_h_expr_0= model.con_h_expr;
+ %model.con_h_expr_0= model.con_h_expr;
 
 %model.con_h_expr =[];
 
@@ -228,8 +228,8 @@ constraints.ub_h = [nl_s; nr_s];
 
 
 %% State bounds
-constraints.throttle_min = -0.3;
-constraints.throttle_max = 0.3;
+constraints.throttle_min = -1.0;
+constraints.throttle_max = 1.0;
 constraints.throttle_idx = 7; % idx zero-based
 
 constraints.delta_min = -0.40;  % minimum steering angle [rad]

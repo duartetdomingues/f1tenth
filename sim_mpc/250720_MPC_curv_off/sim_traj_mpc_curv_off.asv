@@ -1,6 +1,4 @@
 
-%speed_to_erpm_gain  = 4277.5
-%speed_to_duty (m/s) = 0.0602
 % clear mex; clear classes; close all; 
 clf('reset')
 %close all; 
@@ -16,23 +14,14 @@ T_s_total = 80; % Tempo de sim
 % Definir o horizonte de predição
 N = 20; % Horizonte do MPC
 
-L = 0.35; % Distância entre eixos
-servo_gain=-0.840; % Ganho do servo (rad/unidade)
-
-servo_max_rate = 5.2360/10;
-servo_max=0.4; % Ângulo máximo do servo
-
-
-delta_max = abs(servo_max/servo_gain); % Ângulo máximo de direção (radianos)
-
 %% Parâmetros do MPC
 %p= [weight_ds; weight_beta; weight_dalpha; weight_dthrottle; safety_margin];
 
-weight_ds = 15;
-weight_beta = 0.1;
-weight_dalpha = 1;
+weight_ds = 17;
+weight_beta = 0.0;
+weight_dalpha = 1;\
 weight_dthrottle = 1;
-safety_margin = 0.1; % 5 cm
+safety_margin = 0.1; % 10 cm
 
 p=[weight_ds; weight_beta; weight_dalpha; weight_dthrottle; safety_margin];
 
@@ -60,10 +49,10 @@ track.kappa_traj=data(:,4);
 track.nl_traj =ones(length(track.kappa_traj),1);
 track.nr_traj =ones(length(track.kappa_traj),1);
 
-[left_x, left_y, right_x, right_y] = computeTrackBoundaries(track);
+[left_x, left_y, right_x, right_y] = compute_track_boundaries(track);
 
 
-
+% Plot track and boundaries
 figure(1)
 hold on
 plot(track.x_traj, track.y_traj, 'r.', 'markersize', 10);
@@ -71,8 +60,6 @@ plot(left_x, left_y, 'b.', 'markersize', 5);
 plot(right_x, right_y, 'b.', 'markersize', 5);
 legend('Trajetória', 'Lado Esquerdo', 'Lado Direito');
 axis equal
-
- 
 
 check_acados_requirements()
 lib_path = fullfile(pwd, 'c_generated_code/');
@@ -114,8 +101,8 @@ end
 % ------------------------------
 
 % Estado inicial
-x = [0.1; 0.01; 0.01; 0.1; 0.001; 0.0001; 0.01; 0.01]; % [s; n; µ; vx; vy; r; δ; T]
-%x= [0.2224;-0.0097 ;0.0314   ; 3.2755   ;-0.1606 ;   1.4739  ;  0.1993   ; 0.0996];
+% x = [0.1; 0.01; 0.01; 0.1; 0.001; 0.0001; 0.01; 0.01]; % [s; n; µ; vx; vy; r; δ; T]
+% x= [0.2224;-0.0097 ;0.0314   ; 3.2755   ;-0.1606 ;   1.4739  ;  0.1993   ; 0.0996];
 % x =[20.5567
 %    -0.0060
 %     0.0441
@@ -132,11 +119,6 @@ x =[0.2224
     1.3338
    -0.0492
     0.1000];
-
-
-u0=[1;1]*0.1;
-u_history=u0';
-
 
 % Gráfico Trajetoria
 figure(1);
@@ -179,8 +161,6 @@ p_u=plot(0, 0, 'b-', 'LineWidth', 2);
 xlabel('Step');
 ylabel('Heading relativo [rad]');
 
-
-
 figure(3);
 sgtitle('States 2');
 subplot(3,1,1);
@@ -209,32 +189,12 @@ ylabel('Throttle');
 
 t_exec=0;
 
-%{
- Bf = 7.6671;
-Br = 7.1036;
-Cf = 1.2628;
-Cr = 1.7356;
-Df = 1.2307;
-Dr = 1.0252;
-
-Bf = 0.1;
-Br = 0.1;
-Cf = 1;
-Cr = 1;
-Df = 1;
-Dr = 1;
-
-p_global=[true,Bf,Br,Cf,Cr,Df,Dr]'; 
-%}
-
-
-%p_global=zeros(6,1);
-
-%solver.set_p_global_and_precompute_dependencies(p_global)
-
-%solver.set("p_global",p_global')
-
-
+% Bf = 7.6671;
+% Br = 7.1036;
+% Cf = 1.2628;
+% Cr = 1.7356;
+% Df = 1.2307;
+% Dr = 1.0252;
 
 solver.set('p',p);
 
@@ -244,11 +204,11 @@ mpc_sim_x={};
 history_pred={};
 history_xy=[];
 history = [];
+u_history=[];
 
 % Loop principal do MPC
 for t_idx = 1:T_s_total/Ts-1
     % Trajetória de referência para o horizonte atual
-    
 
     solver.set('constr_lbx', x, 0);  % Estado inicial lower bound no estágio 0
     solver.set('constr_ubx', x, 0);
@@ -268,8 +228,8 @@ for t_idx = 1:T_s_total/Ts-1
         disp(["Sucess Solved"]);
     end
     solver.print('stat')
-    x
-    J = solver.get('cost_value')
+
+    J = solver.get('cost_value');
     V = solver.get('constraint_violation');
 
     u = solver.get('u', 0);
@@ -288,7 +248,7 @@ for t_idx = 1:T_s_total/Ts-1
     if status == 0  
         x = solver.get('x', 1);
     else 
-        %x = x + full(model_var.f_expl_func(x(1),x(2),x(3),x(4),x(5),x(6),x(7),x(8),u(1),u(2)))*Ts;
+        x = x + full(model_var.f_expl_func(x(1),x(2),x(3),x(4),x(5),x(6),x(7),x(8),u(1),u(2)))*Ts;
     end
 
 
@@ -313,18 +273,12 @@ for t_idx = 1:T_s_total/Ts-1
         Y_h(k) = yg;
     end
     
-    %set(traj, 'XData', history(:,1), 'YData', history(:,2));
     set(horizon_line, 'XData', X_h, 'YData', Y_h);
     set(ref_point,'XData', X_s, 'YData', Y_s , 'UData', cos(psi_s), 'VData', sin(psi_s));
-
     set(traj_history,'XData', [history_xy(:,1)'; history_xy(:,1)'], 'YData', [history_xy(:,2)';history_xy(:,2)'], 'ZData',[zeros(size(history_xy(:,1)')); zeros(size(history_xy(:,1)'))],'CData', [history(:,4)';history(:,4)']);
-
     set(heading_arrow,'XData', X, 'YData', Y ,'UData', cos(psi), 'VData', sin(psi));
-
-
     drawnow;
-    % set(traj_ref, 'XData', x_ref_step , 'YData', y_ref_step);
-    % drawnow;
+
     set(p_s , 'XData', 1:t_idx, 'YData', history(:,1));
     set(p_n , 'XData', 1:t_idx, 'YData', history(:,2));
     set(p_u , 'XData', 1:t_idx, 'YData', history(:,3));
@@ -438,184 +392,22 @@ end
     %s,x,y,kappa, nl,nr, vx
  if save_traj
 
-    % Encontrar o loop fechado na trajetória (history_xy)
-    % Critério: ponto mais próximo do ponto inicial após um certo número de passos
-    % Critério: encontrar dois pontos sobrepostos (distância < threshold) e separados por uma distância mínima de índices
-    threshold = 0.05; % tolerância de sobreposição [m]
-    min_index_gap = 20; % distância mínima entre índices
-
-    min_idx = 1;
-    min_dist = inf;
-    idx1 = 1;
-    idx2 = 1;
-
-    exit_flag = false;
-    for lap =1:2
-
-        min_idx=idx2;
-        for i = min_idx:length(history_xy)-min_index_gap
-            for j = i+min_index_gap:length(history_xy)
-                dist = norm(history_xy(i,1:2) - history_xy(j,1:2));
-                if dist < threshold && dist < min_dist
-                    min_dist = dist;
-                    idx1 = i;
-                    idx2 = j;
-                    exit_flag = true;
-                    break;
-                end
-            end
-            if exit_flag
-                break;
-            end
-        end
-       fprintf('Loop fechado lap %d entre índices: %d e %d, distância: %.4f on (x,y / x,y) %.2f,%.2f / %.2f,%.2f\n',lap , idx1, idx2, min_dist, history_xy(idx1,1),history_xy(idx1,2),history_xy(idx2,1),history_xy(idx2,2));
-       min_dist = inf;
-    end
-
-    
-    
-    traj2.s = history(idx1:idx2,1)-history(idx1,1);
-    traj2.x = history_xy(idx1:idx2,1);
-    traj2.y = history_xy(idx1:idx2,2);
-
-
-    
-    % Calculate curvature (kappa) from trajectory points
-    dx = diff(traj2.x);
-    dy = diff(traj2.y);
-    ddx = diff(dx);
-    ddy = diff(dy);
-
-    % Pad to match length
-    dx = [dx; dx(end)];
-    dy = [dy; dy(end)];
-    ddx = [ddx; ddx(end); ddx(end)];
-    ddy = [ddy; ddy(end); ddy(end)];
-
-    traj2.kappa = (dx .* ddy - dy .* ddx) ./ ((dx.^2 + dy.^2).^(3/2));
-
-    traj2.vx = history(idx1:idx2,4); % velocidade longitudinal
+    traj2 = compute_raceline_trajectory(history_xy, history);
 
     % Salvar a trajetória em CSV: colunas [s, x, y, kappa, vx]
     traj2_mat = [traj2.s, traj2.x, traj2.y, traj2.kappa, traj2.vx];
     traj2_dir = './traj_out';
-    traj2_name = fullfile(traj2_dir, [traj_filename, '_raceline.csv']);
-   
-
-    csvwrite(traj2_name, traj2_mat);
+  
+    traj2_filename = extractBefore(traj_filename, ".csv") + "_raceline.csv";
+    traj2_name = fullfile(traj2_dir, traj2_filename);
+    % Salvar com nomes das variáveis (colunas)
+    traj2_table = array2table(traj2_mat, ...
+        'VariableNames', {'s', 'x', 'y', 'kappa', 'vx'});
+    writetable(traj2_table, traj2_name);
     fprintf('Trajetória salva em %s\n', traj2_name);
 
-
 end
 
-% %Plotar angulo de direção
-% figure;
-% subplot(2,1,1);
-% plot(history(:,4), 'b-', 'LineWidth', 2);
-% xlabel('Step');
-% ylabel('Ângulo de direção [rad]');
-% title('Ângulo de direção do veículo');
-% subplot(2,1,2);
-% plot(diff(history(:,4))/Ts, 'b-', 'LineWidth', 2);
-% xlabel('Step');
-% ylabel('Ângulo de direção derivado [rad]');
-% title('Derivada do Ângulo de direção do veículo');
-% 
-% 
-% x_delta = mpc_sim_x{1}(4,2:end);
-% u_delta = mpc_sim_u{1}(1,:);
-% error = x_delta - u_delta;
-% disp('Error u1 vs x4:')
-% disp(error)
-% 
-% 
-% max_diff_u=0;
-% for i =1:length(mpc_sim_u)
-%     diff_u = abs(mpc_sim_u{i}(1,:)-mpc_sim_x{i}(4,1:end-1))/Ts;
-%     if max_diff_u<max(diff_u)
-%         max_diff_u=max(diff_u);
-%     end
-% end
-% 
-% disp(max_diff_u)
-
-function [x,y,psi ,X_s, Y_s,theta_s]=local_to_global_pose (track, model_var,x)
-
-    s_val=x(1);
-    n_val = x(2);
-    mu_val= x(3);
-    
-    pathlength = track.s_traj(end);
-    s_val = rem(s_val, pathlength);
-
-    X_s = interp1(track.s_traj, track.x_traj, s_val, 'linear', 'extrap');
-    Y_s = interp1(track.s_traj, track.y_traj, s_val, 'linear', 'extrap');
-    theta_traj = cumtrapz(track.s_traj, track.kappa_traj);  % integração de kappa para obter theta
-
-    theta_0 = atan2(track.y_traj(2)-track.y_traj(1),track.x_traj(2)-track.x_traj(1));
-    theta_traj= theta_traj+theta_0;
-    theta_s = interp1(track.s_traj, theta_traj, s_val, 'linear', 'extrap');
-    
-
-    x = X_s - n_val * sin(theta_s);
-    y = Y_s + n_val * cos(theta_s);
-    psi = theta_s + mu_val;
-end
-
-function [left_x, left_y, right_x, right_y] = computeTrackBoundaries(track)
-    % Função que calcula as bordas esquerda e direita de uma pista
-    % usando a curvatura e a trajetória.
-    %
-    % Parâmetros de entrada:
-    % track - Estrutura com os dados da trajetória, contendo:
-    %         track.x_traj - Coordenadas x da trajetória
-    %         track.y_traj - Coordenadas y da trajetória
-    %         track.kappa_traj - Curvatura ao longo da trajetória
-    % nl_traj - Largura da pista à esquerda (em unidades correspondentes à trajetória)
-    % nr_traj - Largura da pista à direita (em unidades correspondentes à trajetória)
-    %
-    % Parâmetros de saída:
-    % left_x, left_y - Coordenadas das bordas esquerda
-    % right_x, right_y - Coordenadas das bordas direita
-
-    % Calcular as direções tangenciais à trajetória
-    dx = diff(track.x_traj); % Diferença nas coordenadas x
-    dy = diff(track.y_traj); % Diferença nas coordenadas y
-    d = sqrt(dx.^2 + dy.^2); % Distância entre os pontos consecutivos
-    
-    % Direções normais à trajetória (perpendicular à tangente)
-    theta = atan2(dy, dx); % Ângulo tangencial da trajetória (em radianos)
-    norm_x = -sin(theta); % Componente normal em x
-    norm_y = cos(theta);  % Componente normal em y
-    
-    % Normalizar as direções normais
-    norm_x = [norm_x; norm_x(end)]; % Adiciona o último valor para manter o tamanho
-    norm_y = [norm_y; norm_y(end)]; % Adiciona o último valor para manter o tamanho
-
-    % Larguras à esquerda e à direita, ajustadas pela curvatura
-    left_x = track.x_traj + track.nl_traj .* norm_x;
-    left_y = track.y_traj + track.nl_traj .* norm_y;
-    right_x = track.x_traj - track.nr_traj .* norm_x;
-    right_y = track.y_traj - track.nr_traj .* norm_y;
-end
-
-
-function  computeLastCost(history,Ts)
-
-%L_stage_e = -8*(Ts*d_s) + 10*n^2+ 20*heading_u^2 %+300*Bexpr;
-N=width(history')
-
-x_last=history(N-1,:);
-x=history(N,:);
-dx=x-x_last;
-
-S_cost=-8*(Ts*dx(1))
-N_cost=10*x(2)^2
-U_cost=20*x(3)^2
-
-Total_Cost=S_cost+N_cost+U_cost
-    
-end
 
 
 

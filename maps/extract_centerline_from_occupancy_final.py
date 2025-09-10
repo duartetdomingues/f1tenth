@@ -39,7 +39,7 @@ def remove_small_branches(skeleton, min_length=5):
 
 
 # === 1. Carrega o mapa de ocupação binário (0 = livre, 1 = obstáculo)
-map_files = "/home/duarte/Desktop/f1tenth/maps/map_2025-07-16_15-28-18/map_output"
+map_files = "./maps/map_2025-07-16_15-28-18/map_output"
 
 map_path = map_files + ".pgm"
 
@@ -91,10 +91,21 @@ for i, p in enumerate(points):
     for j in idxs:
         if j != i and j < len(points):
             G.add_edge(i, j)
+            
+def prune_branches(G):
+    G = G.copy()
+    leaves = [n for n in G.nodes if G.degree[n] == 1]
+    while leaves:
+        G.remove_nodes_from(leaves)
+        leaves = [n for n in G.nodes if G.degree[n] == 1]
+    return G
+
+G_pruned = prune_branches(G)
 
 # === 5. Get largest cycle
 print("Procurando ciclos...")
-cycles = nx.cycle_basis(G)
+min_cycle_len = 50  # número mínimo de nós no ciclo
+cycles = [c for c in nx.cycle_basis(G) if len(c) >= min_cycle_len]
 if not cycles:
     raise RuntimeError("Nenhum ciclo encontrado no esqueleto!")
 
@@ -283,8 +294,8 @@ print(f"Last folder name: {last_folder_name}")
 filename = "centerline_" + last_folder_name + ".csv"
 
 # Export to CSV
-df = pd.DataFrame({"s": s_uniform, "x": x_s, "y": y_s, "kappa": kappa})
-df.to_csv(filename, index=False)
+""" df = pd.DataFrame({"s": s_uniform, "x": x_s, "y": y_s, "kappa": kappa})
+df.to_csv(filename, index=False) """
 
 # === 9. Visualize
 plt.figure(figsize=(10, 6))

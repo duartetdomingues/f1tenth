@@ -61,13 +61,13 @@ nr_traj =track.nr_traj ;
 % 
 % nr_traj = [nr_traj ; nr_traj(2:end)];
 
-kappa_lut =interpolant('kappa_lut_l','linear',{s_traj},kappa_traj);
-n_l_lut =interpolant('n_l_lut_l','linear',{s_traj},nl_traj);
-n_r_lut =interpolant('n_r_lut_l','linear',{s_traj},nr_traj);
+% kappa_lut =interpolant('kappa_lut_l','linear',{s_traj},kappa_traj);
+% n_l_lut =interpolant('n_l_lut_l','linear',{s_traj},nl_traj);
+% n_r_lut =interpolant('n_r_lut_l','linear',{s_traj},nr_traj);
 
-% kappa_lut =interpolant('kappa_lut_l','bspline',{s_traj},kappa_traj);
-% n_l_lut =interpolant('n_l_lut_l','bspline',{s_traj},nl_traj);
-% n_r_lut =interpolant('n_r_lut_l','bspline',{s_traj},nr_traj);
+kappa_lut =interpolant('kappa_lut_l','bspline',{s_traj},kappa_traj);
+n_l_lut =interpolant('n_l_lut_l','bspline',{s_traj},nl_traj);
+n_r_lut =interpolant('n_r_lut_l','bspline',{s_traj},nr_traj);
 
 %% Params
 
@@ -75,7 +75,6 @@ weight_ds = MX.sym('weight_ds');
 weight_beta = MX.sym('weight_beta');
 weight_dalpha = MX.sym('weight_dalpha');
 weight_dthrottle = MX.sym('weight_dthrottle');
-
 safety_margin = MX.sym('safety_margin');
 
 p= [weight_ds; weight_beta; weight_dalpha; weight_dthrottle; safety_margin];
@@ -162,10 +161,10 @@ nl_s=1;
 nr_s = 1;
 
 %% State X Dynamics
-% den  = 1 - kappa*n;
-% den  = 0.5*(den + sqrt(den*den + 1e-6));  % clamp suave
-% d_s = (vx*cos(heading_u) - vy*sin(heading_u))/den;
-d_s = (vx*cos(heading_u) - vy*sin(heading_u))/(1-n*kappa);
+den  = 1 - kappa*n;
+den  = 0.5*(den + sqrt(den*den + 1e-6));  % clamp suave
+d_s = (vx*cos(heading_u) - vy*sin(heading_u))/den;
+% d_s = (vx*cos(heading_u) - vy*sin(heading_u))/(1-n*kappa);
 d_n = vx*sin(heading_u) + vy*cos(heading_u);
 d_u = yaw_rate - kappa * d_s;
 d_vx = 1/mass*(Fx - Fy_f * sin(delta) + mass*vy*yaw_rate);
@@ -229,16 +228,22 @@ constraints.ub_h = [nl_s; nr_s];
 
 %% State bounds
 constraints.throttle_min = -0.3;
-constraints.throttle_max = 0.3;
+constraints.throttle_max = 0.2;
 constraints.throttle_idx = 7; % idx zero-based
 
 constraints.delta_min = -0.40;  % minimum steering angle [rad]
 constraints.delta_max = 0.40;  % maximum steering angle [rad]
 constraints.delta_idx = 6; % idx zero-based
 
-constraints.heading_min = -pi/2;
-constraints.heading_max = pi/2;
+constraints.heading_min = -pi;
+constraints.heading_max = pi;
 constraints.heading_idx = 2;
+% constraints.heading_min = -pi;
+% constraints.heading_max = pi;
+% constraints.heading_idx = 2;
+% constraints.heading_min = -infty;
+% constraints.heading_max = infty;
+% constraints.heading_idx = 2;
 
 %% Input bounds
 constraints.ddelta_min = -servo_max_rate*Ts;  % minimum change rate of stering angle [rad/s]
@@ -253,21 +258,26 @@ constraints.dthrottle_max = 1.2*Ts;  % 10.0  % maximum throttle change rat
 
 
 %% ----- ângulos de deslize ---------------------------------------
-beta_dyn = atan2(vy,vx);
+beta_dyn = atan2(vy,vx+0.01);
 beta_kin = atan( delta * Lr / (Lf+Lr) );
 Bexpr    = weight_beta * (beta_dyn - beta_kin)^2;
 
 %% ----- termo de rate-penalty ------------------------------------
+d_u = [d_delta;d_throttle];
+
 R=diag([weight_dalpha, weight_dthrottle]);
-uexpr    = u.' * R * u;
+uexpr    = d_u.' * R * d_u;
 
 epsilon_cost = 1e-10;
 % L_stage = -8*(Ts*d_s) + 40*n^2+ 10*heading_u^2 + uexpr ;%+ Bexpr;     % (1×1) OK
 % L_stage_e = -8*(Ts*d_s) + 40*n^2+ 10*heading_u^2 ;%+ Bexpr;
 % L_stage =-8*(Ts*d_s+0.01) + 5*n^2+ 5*heading_u^2 +Bexpr%+ uexpr %+ 300*Bexpr;     % (1×1) OK
 % L_stage_e = -8*(Ts*d_s+0.01)+ 5*n^2+ 5*heading_u^2 +Bexpr;
-L_stage = weight_ds*0.01/(d_s) + Bexpr + uexpr;
-L_stage_e = weight_ds*0.01/(d_s) + Bexpr;
+L_stage = weight_ds*0.01/(d_s)    + Bexpr+ uexpr;
+L_stage_e = weight_ds*0.01/(d_s)+ Bexpr;
+% L_stage = - weight_ds*d_s + uexpr  + Bexpr
+% L_stage_e = - weight_ds*d_s + Bexpr
+
 
 model.cost_expr_ext_cost = L_stage;
 model.cost_expr_ext_cost_0 = L_stage;

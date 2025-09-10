@@ -16,18 +16,23 @@ N = 20; % Horizonte do MPC
 
 %% Parâmetros do MPC
 %p= [weight_ds; weight_beta; weight_dalpha; weight_dthrottle; safety_margin];
+% weight_ds = 15;
+% weight_beta = 0.15;
 
-weight_ds = 16;
-weight_beta = 0.15;
-weight_dalpha = 1;
-weight_dthrottle = 1;
-safety_margin = 0.1; % 10 cm
+weight_ds = 0.1;
+weight_beta = 0.3;
+
+weight_ds = 15;
+weight_beta = 0.3;
+weight_dalpha = 0.1;
+weight_dthrottle = 0.1;
+safety_margin = 0.01; % 10 cm
 
 p=[weight_ds; weight_beta; weight_dalpha; weight_dthrottle; safety_margin];
 
 %% Upload Traj
-%traj_file="centerline_map_2025-07-16_15-28-18.csv";
-traj_filename="centerline_v2_test_map.csv";
+%traj_filename="centerline_v2_test_map.csv";
+traj_filename="centerline_v2_map_2025-09-09_10-52-29.csv";
 traj_dir="../../traj";
 
 % Caminho para o ficheiro
@@ -46,8 +51,12 @@ track.s_traj=data(:,1);
 track.x_traj=data(:,2);
 track.y_traj=data(:,3);
 track.kappa_traj=data(:,4);
-track.nl_traj =ones(length(track.kappa_traj),1);
-track.nr_traj =ones(length(track.kappa_traj),1);
+track.nl_traj =data(:,5);
+track.nr_traj =data(:,6);
+
+% track.nl_traj =ones(length(track.kappa_traj),1);
+% track.nr_traj =ones(length(track.kappa_traj),1);
+
 
 [left_x, left_y, right_x, right_y] = compute_track_boundaries(track);
 
@@ -111,14 +120,15 @@ end
 %     1.3338
 %    -0.0492
 %     0.1000];
-x =[0.2224
-   -0.0060
-    0.0441
-    3.2940
-   -0.2095
-    1.3338
-   -0.0492
-    0.1000];
+% x =[0.2224
+%    -0.0060
+%     0.0441
+%     3.2940
+%    -0.2095
+%     1.3338
+%    -0.0492
+%     0.1000];
+x =[0.1;0.1;0.1;0.1;0.1;0.0;0.0;0.0 ];
 
 % Gráfico Trajetoria
 figure(1);
@@ -179,11 +189,17 @@ xlabel('Step');
 figure(4);
 sgtitle('Inputs');
 subplot(2,1,1);
+hold on
 p_u1=plot(0, 0, 'b-', 'LineWidth', 2);
+p_d=plot(0, 0, 'r-', 'LineWidth', 2);
+legend('U','X')
 xlabel('Step');
 ylabel('Delta [rad]');
 subplot(2,1,2);
+hold on
 p_u2=plot(0, 0, 'b-', 'LineWidth', 2);
+p_T=plot(0, 0, 'r-', 'LineWidth', 2);
+legend('U','X')
 xlabel('Step');
 ylabel('Throttle');
 
@@ -222,36 +238,36 @@ for t_idx = 1:T_s_total/Ts-1
     if status ~= 0  
         warning(['acados ocp solver failed with status ',num2str(status)]);
         solver.print('stat')
-        break
+        %break
+        x = x + full(model_var.f_expl_func(x(1),x(2),x(3),x(4),x(5),x(6),x(7),x(8),u(1),u(2)))*Ts;
+        u=u_history(end,:)';
+
+        mpc_sim_u{t_idx} = zeros(2,10);
+        mpc_sim_x{t_idx} = zeros(8,10);
+        return
     
     else
         disp(["Sucess Solved"]);
+        solver.print('stat')
+
+        J = solver.get('cost_value');
+        V = solver.get('constraint_violation');
+    
+        u = solver.get('u', 0);
+    
+        mpc_sim_u{t_idx} = zeros(2,10);
+        mpc_sim_x{t_idx} = zeros(8,10);
+        for n_idx=1:N
+            mpc_sim_u{t_idx}(:,n_idx)= solver.get('u',n_idx-1);
+            mpc_sim_x{t_idx}(:,n_idx)= solver.get('x',n_idx);
+        end
+
+         x = solver.get('x', 1);
     end
-    solver.print('stat')
-
-    J = solver.get('cost_value');
-    V = solver.get('constraint_violation');
-
-    u = solver.get('u', 0);
-
-    mpc_sim_u{t_idx} = zeros(2,10);
-    mpc_sim_x{t_idx} = zeros(8,10);
-    for n_idx=1:N
-        mpc_sim_u{t_idx}(:,n_idx)= solver.get('u',n_idx-1);
-        mpc_sim_x{t_idx}(:,n_idx)= solver.get('x',n_idx);
-    end
+    
 
     
     u_history=[u_history; u'];
-
-    % Atualiza estado com o modelo da bicicleta
-    if status == 0  
-        x = solver.get('x', 1);
-    else 
-        x = x + full(model_var.f_expl_func(x(1),x(2),x(3),x(4),x(5),x(6),x(7),x(8),u(1),u(2)))*Ts;
-    end
-
-
     history = [history; x'];
 
     % Pose
@@ -285,8 +301,10 @@ for t_idx = 1:T_s_total/Ts-1
     set(p_vx , 'XData', 1:t_idx, 'YData', history(:,4));
     set(p_vy , 'XData', 1:t_idx, 'YData', history(:,5));
     set(p_r , 'XData', 1:t_idx, 'YData',history(:,6));
-    set(p_u1, 'XData', 1:t_idx, 'YData',history(:,7));
-    set(p_u2, 'XData', 1:t_idx, 'YData',history(:,8));
+    set(p_d, 'XData', 1:t_idx, 'YData',history(:,7));
+    set(p_T, 'XData', 1:t_idx, 'YData',history(:,8));
+    set(p_u1, 'XData', 1:t_idx, 'YData',u_history(:,1));
+    set(p_u2, 'XData', 1:t_idx, 'YData',u_history(:,2));
     drawnow;
 
 
