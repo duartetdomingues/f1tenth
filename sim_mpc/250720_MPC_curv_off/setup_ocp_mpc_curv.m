@@ -18,24 +18,28 @@ function [solver, model_var] = setup_ocp_mpc_curv(N,p ,Ts, track)
 
 
     % Constraints Entradas
-    ocp.constraints.idxbu = [0;1];
-    ocp.constraints.lbu = [constraints.delta_min; constraints.throttle_min];
-    ocp.constraints.ubu = [constraints.delta_max; constraints.throttle_max];
-
+    % ocp.constraints.idxbu = [0;1];
+    % ocp.constraints.lbu = [constraints.ddelta_min; constraints.dthrottle_min];
+    % ocp.constraints.ubu = [constraints.ddelta_max; constraints.dthrottle_max];
     
 
     % Constraints Estados
-    ocp.constraints.idxbx = [constraints.heading_idx;constraints.delta_idx;constraints.throttle_idx];
-    ocp.constraints.lbx = [constraints.heading_min;constraints.delta_min; constraints.throttle_min];
-    ocp.constraints.ubx = [constraints.heading_max;constraints.delta_max; constraints.throttle_max];
+    idxbx = [constraints.vx_idx;constraints.heading_idx;constraints.delta_idx;constraints.throttle_idx];
+    lbx = [ constraints.vx_min;constraints.heading_min;constraints.delta_min; constraints.throttle_min];
+    ubx = [constraints.vx_max;constraints.heading_max;constraints.delta_max; constraints.throttle_max];
 
-    ocp.constraints.idxbx_e = [constraints.heading_idx;constraints.delta_idx;constraints.throttle_idx];
-    ocp.constraints.lbx_e = [constraints.heading_min;constraints.delta_min; constraints.throttle_min];
-    ocp.constraints.ubx_e = [constraints.heading_max;constraints.delta_max; constraints.throttle_max];
+    ocp.constraints.idxbx = idxbx;
+    ocp.constraints.lbx = lbx;
+    ocp.constraints.ubx = ubx;
 
-    ocp.constraints.idxbx_0 = [constraints.heading_idx;constraints.delta_idx;constraints.throttle_idx];
-    ocp.constraints.lbx_0 = [constraints.heading_min;constraints.delta_min; constraints.throttle_min];
-    ocp.constraints.ubx_0 = [constraints.heading_max;constraints.delta_max; constraints.throttle_max];
+
+    ocp.constraints.idxbx_e = idxbx;
+    ocp.constraints.lbx_e = lbx;
+    ocp.constraints.ubx_e = ubx;
+
+    ocp.constraints.idxbx_0 = idxbx;
+    ocp.constraints.lbx_0 = lbx;
+    ocp.constraints.ubx_0 = ubx;
 
     % ocp.constraints.idxbx = [constraints.heading_idx];
     % ocp.constraints.lbx = [constraints.heading_min];
@@ -70,7 +74,7 @@ function [solver, model_var] = setup_ocp_mpc_curv(N,p ,Ts, track)
     % ocp.constraints.uh_0 =  servo_max_rate;
  
    %ocp.constraints.x0=zeros(8,1);
-   ocp.constraints.x0 = ones(8,1)* 1e-1;
+   %ocp.constraints.x0 = ones(8,1)* 1e-1;
    % Estados       x = [s; n; µ; vx; vy; r; δ; T]
    ocp.constraints.x0 =[0.1;0.1;0.1;0.1;0.1;0.0;0.0;0.0 ];
    % 
@@ -102,11 +106,21 @@ function [solver, model_var] = setup_ocp_mpc_curv(N,p ,Ts, track)
 
     ocp.solver_options.qp_solver = 'PARTIAL_CONDENSING_HPIPM';
     %ocp.solver_options.qp_solver = 'FULL_CONDENSING_HPIPM';
-    ocp.solver_options.hessian_approx ='GAUSS_NEWTON';
-    %ocp.solver_options.hessian_approx = 'EXACT';
-    ocp.solver_options.nlp_solver_type = 'SQP_RTI'; % ou 'SQP_RTI' para mais rápido
+    %ocp.solver_options.qp_solver = 'FULL_CONDENSING_QPOASES';
+    %ocp.solver_options.qp_solver = 'FULL_CONDENSING_HPIPM';
 
-    ocp.solver_options.regularize_method = 'CONVEXIFY';
+
+    %ocp.solver_options.hessian_approx ='GAUSS_NEWTON';
+    ocp.solver_options.hessian_approx = 'EXACT';
+    ocp.solver_options.nlp_solver_type = 'SQP'; % ou 'SQP_RTI' para mais rápido
+    %ocp.solver_options.nlp_solver_type = 'SQP_RTI'; % ou 'SQP_RTI' para mais rápido
+
+    %ocp.solver_options.regularize_method = 'NO_REGULARIZE';
+    %ocp.solver_options.regularize_method = 'NO_REGULARIZE';
+    %ocp.solver_options.regularize_method = 'GERSHGORIN_LEVENBERG_MARQUARDT';
+    ocp.solver_options.regularize_method = 'MIRROR';
+    %ocp.solver_options.regularize_method = 'CONVEXIFY';
+
 
     % ocp.solver_options.qp_solver = 'FULL_CONDENSING_HPIPM';
     % ocp.solver_options.hessian_approx = 'EXACT';
@@ -117,11 +131,10 @@ function [solver, model_var] = setup_ocp_mpc_curv(N,p ,Ts, track)
     % ocp.solver_options.nlp_solver_type = 'SQP_RTI'; % ou 'SQP_RTI' para mais rápido
     % ocp.solver_options.hessian_approx = 'GAUSS_NEWTON';
     
-    ocp.solver_options.integrator_type = 'ERK';
     ocp.solver_options.sim_method_num_stages = 4;
-    ocp.solver_options.sim_method_num_steps = 3;
+    ocp.solver_options.sim_method_num_steps = 4;
 
-    %ocp.solver_options.globalization       = 'MERIT_BACKTRACKING';
+    ocp.solver_options.globalization       = 'MERIT_BACKTRACKING';
     %ocp.solver_options.levenberg_marquardt = 1e-3;
     ocp.solver_options.nlp_solver_max_iter = 200;
 
@@ -129,10 +142,10 @@ function [solver, model_var] = setup_ocp_mpc_curv(N,p ,Ts, track)
 
     % Ajuste tolerâncias
     %ocp.solver_options.tol = 1e-2;
-    ocp.solver_options.qp_solver_tol_stat = 1e-2;
-    ocp.solver_options.qp_solver_tol_eq=1e-2;
-    ocp.solver_options.qp_solver_tol_ineq=1e-2;
-    ocp.solver_options.qp_solver_tol_comp=1e-2;
+    % ocp.solver_options.qp_solver_tol_stat = 1e-2;
+    % ocp.solver_options.qp_solver_tol_eq=1e-2;
+    % ocp.solver_options.qp_solver_tol_ineq=1e-2;
+    % ocp.solver_options.qp_solver_tol_comp=1e-2;
     
     ocp.solver_options.print_level = 3;
  

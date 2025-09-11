@@ -23,16 +23,16 @@ weight_ds = 0.1;
 weight_beta = 0.3;
 
 weight_ds = 15;
-weight_beta = 0.3;
-weight_dalpha = 0.1;
-weight_dthrottle = 0.1;
-safety_margin = 0.01; % 10 cm
+weight_beta = 0.15;
+weight_dalpha = 0.05;
+weight_dthrottle = 0.05;
+safety_margin = 0.2; % 10 cm
 
 p=[weight_ds; weight_beta; weight_dalpha; weight_dthrottle; safety_margin];
 
 %% Upload Traj
-%traj_filename="centerline_v2_test_map.csv";
-traj_filename="centerline_v2_map_2025-09-09_10-52-29.csv";
+traj_filename="centerline_v2_test_map.csv";
+%traj_filename="centerline_v2_map_2025-09-09_10-52-29.csv";
 traj_dir="../../traj";
 
 % Caminho para o ficheiro
@@ -51,12 +51,14 @@ track.s_traj=data(:,1);
 track.x_traj=data(:,2);
 track.y_traj=data(:,3);
 track.kappa_traj=data(:,4);
-track.nl_traj =data(:,5);
-track.nr_traj =data(:,6);
+% track.nl_traj =data(:,5);
+% track.nr_traj =data(:,6);
 
-% track.nl_traj =ones(length(track.kappa_traj),1);
-% track.nr_traj =ones(length(track.kappa_traj),1);
+track_width=1; % in m
+track.nl_traj =ones(length(track.kappa_traj),1)*track_width;
+track.nr_traj =ones(length(track.kappa_traj),1)*track_width;
 
+addpath('./aux_functions/');
 
 [left_x, left_y, right_x, right_y] = compute_track_boundaries(track);
 
@@ -189,19 +191,26 @@ xlabel('Step');
 figure(4);
 sgtitle('Inputs');
 subplot(2,1,1);
-hold on
-p_u1=plot(0, 0, 'b-', 'LineWidth', 2);
 p_d=plot(0, 0, 'r-', 'LineWidth', 2);
-legend('U','X')
 xlabel('Step');
 ylabel('Delta [rad]');
 subplot(2,1,2);
-hold on
-p_u2=plot(0, 0, 'b-', 'LineWidth', 2);
 p_T=plot(0, 0, 'r-', 'LineWidth', 2);
-legend('U','X')
 xlabel('Step');
 ylabel('Throttle');
+
+
+figure(5);
+sgtitle('Inputs Rate');
+subplot(2,1,1);
+p_u1=plot(0, 0, 'b-', 'LineWidth', 2);
+xlabel('Step');
+ylabel('dDelta [rad/s]');
+subplot(2,1,2);
+p_u2=plot(0, 0, 'b-', 'LineWidth', 2);
+xlabel('Step');
+ylabel('dThrottle [1/s]');
+
 
 t_exec=0;
 
@@ -248,7 +257,7 @@ for t_idx = 1:T_s_total/Ts-1
     
     else
         disp(["Sucess Solved"]);
-        solver.print('stat')
+        %solver.print('stat')
 
         J = solver.get('cost_value');
         V = solver.get('constraint_violation');
@@ -311,21 +320,21 @@ for t_idx = 1:T_s_total/Ts-1
 
 end
 
-figure(5);
+figure(6);
 plot(t_exec*1000)
 title("Tempo de Execuçao Solver")
 xlabel("Step")
 ylabel("Tempo[ms]")
 %fprintf("distancia percorrida",int(history(:,5),Ts))
 
-figure(6);
+figure(7);
 hold on
 plot(history_xy(:,1),history_xy(:,2), 'r.', 'markersize', 10);
 plot(track.x_traj, track.y_traj, 'y--', 'LineWidth', 1.5);
 plot(left_x, left_y, 'b.', 'markersize', 5);
 plot(right_x, right_y, 'b.', 'markersize', 5);
 
-figure(7);
+figure(8);
 clf
 hold on
 scatter(history_xy(:,1), history_xy(:,2), 15, history(:,4), 'filled'); % pontos coloridos
@@ -341,7 +350,7 @@ title('Trajetória com velocidade como cor');
 axis equal;
 
 
-figure(8);
+figure(9);
 x=history_xy(:,1);
 y=history_xy(:,2);
 vel=history(:,4);
