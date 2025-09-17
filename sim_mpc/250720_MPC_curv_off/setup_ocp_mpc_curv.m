@@ -18,9 +18,9 @@ function [solver, model_var] = setup_ocp_mpc_curv(N,p ,Ts, track)
 
 
     % Constraints Entradas
-    % ocp.constraints.idxbu = [0;1];
-    % ocp.constraints.lbu = [constraints.ddelta_min; constraints.dthrottle_min];
-    % ocp.constraints.ubu = [constraints.ddelta_max; constraints.dthrottle_max];
+    ocp.constraints.idxbu = [0;1];
+    ocp.constraints.lbu = [constraints.ddelta_min; constraints.dthrottle_min];
+    ocp.constraints.ubu = [constraints.ddelta_max; constraints.dthrottle_max];
     
 
     % Constraints Estados
@@ -63,6 +63,14 @@ function [solver, model_var] = setup_ocp_mpc_curv(N,p ,Ts, track)
         ocp.constraints.lh_0 = constraints.lb_h;
         ocp.constraints.uh_0 = constraints.ub_h; 
     end
+
+    % ocp.constraints.idxsh = [2; 3];   % atenção: zero-based!
+    % ocp.cost.zl = zeros(2,1);       % [0;0] sem penalização linear
+    % ocp.cost.Zl = zeros(2,1);       % [0;0] sem penalização linear
+    % ocp.cost.zu = 1e4*ones(2,1);    % [1e4; 1e4] penalização linear (grande)
+    % ocp.cost.Zu = zeros(2,1);       % [0;0]  ou podes pôr Zu=1e4 para quadrática
+
+
 
 
     %servo_max_rate = p(2);       % velocidade angular máxima (rad/s)
@@ -134,7 +142,7 @@ function [solver, model_var] = setup_ocp_mpc_curv(N,p ,Ts, track)
     ocp.solver_options.sim_method_num_stages = 4;
     ocp.solver_options.sim_method_num_steps = 4;
 
-    ocp.solver_options.globalization       = 'MERIT_BACKTRACKING';
+    %ocp.solver_options.globalization       = 'MERIT_BACKTRACKING';
     %ocp.solver_options.levenberg_marquardt = 1e-3;
     ocp.solver_options.nlp_solver_max_iter = 200;
 

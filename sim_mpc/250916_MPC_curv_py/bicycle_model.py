@@ -202,15 +202,24 @@ def bicycle_model(s0: list, kapparef: list, d_left: list, d_right: list,
     f_expl_func = Function('f_expl_func', [s, n, theta, v_x, v_y, delta, yaw_rate, accel, jerk, derDelta, p], [f_expl])
 
     # Define initial conditions
-    model.x0 = np.zeros(n_x)
+    #model.x0 = np.zeros(n_x)
+    model.x0 = np.array([15.1, 0.1, 0.1, 0.1, 0.1, 0.0, 0.0, 0.0], dtype=float)
 
     terminal_multiplier = 10
-    model.cost_expr_ext_cost_0 = weight_qn * (n - overtake_d)**2 + weight_qalpha * theta**2 + weight_qv * \
+    """ model.cost_expr_ext_cost_0 = weight_qn * (n - overtake_d)**2 + weight_qalpha * theta**2 + weight_qv * \
         (v_x - V_target)**2 + weight_qjerk * jerk**2 + weight_ddelta * derDelta**2
     model.cost_expr_ext_cost = weight_qn * (n - overtake_d)**2 + weight_qalpha * theta**2 + weight_qv * \
         (v_x - V_target)**2 + weight_qjerk * jerk**2 + weight_ddelta * derDelta**2
     model.cost_expr_ext_cost_e = terminal_multiplier * \
-        (weight_qn * (n - overtake_d)**2 + weight_qalpha * theta**2 + weight_qv * (v_x - V_target)**2)
+        (weight_qn * (n - overtake_d)**2 + weight_qalpha * theta**2 + weight_qv * (v_x - V_target)**2) """
+        
+    model.cost_expr_ext_cost_0 = weight_qn * (n - overtake_d)**2 + weight_qalpha * theta**2 - weight_qv * \
+        (v_x) + weight_qjerk * jerk**2 + weight_ddelta * derDelta**2
+    model.cost_expr_ext_cost = weight_qn * (n - overtake_d)**2 + weight_qalpha * theta**2 - weight_qv * \
+        (v_x) + weight_qjerk * jerk**2 + weight_ddelta * derDelta**2
+    model.cost_expr_ext_cost_e = terminal_multiplier * \
+        (weight_qn * (n - overtake_d)**2 + weight_qalpha * theta**2 - weight_qv * (v_x))
+        
     if stmpc_config.vy_minimization:
         model.cost_expr_ext_cost_0 += 100 * v_y**2
         model.cost_expr_ext_cost += 100 * v_y**2

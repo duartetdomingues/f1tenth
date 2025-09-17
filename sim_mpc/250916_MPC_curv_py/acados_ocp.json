@@ -1,7 +1,7 @@
 {
-    "acados_include_path": "/home/desktop/acados/include",
-    "acados_lib_path": "/home/desktop/acados/lib",
-    "code_export_directory": "/home/desktop/f1tenth/sim_mpc/250916_MPC_curv_py/c_generated_code",
+    "acados_include_path": "/home/duarte/acados/include",
+    "acados_lib_path": "/home/duarte/acados/lib",
+    "code_export_directory": "/home/duarte/Desktop/f1tenth/sim_mpc/250916_MPC_curv_py/c_generated_code",
     "constraints": {
         "C": [],
         "C_e": [],
@@ -52,9 +52,6 @@
             6,
             7
         ],
-        "idxs_rev": [],
-        "idxs_rev_0": [],
-        "idxs_rev_e": [],
         "idxsbu": [],
         "idxsbx": [],
         "idxsbx_e": [],
@@ -95,11 +92,11 @@
             -10.0
         ],
         "lbx_0": [
-            0.0,
-            0.0,
-            0.0,
-            0.0,
-            0.0,
+            0.1,
+            0.01,
+            0.01,
+            0.01,
+            0.01,
             0.0,
             0.0,
             0.0
@@ -128,9 +125,6 @@
         "lphi": [],
         "lphi_0": [],
         "lphi_e": [],
-        "ls": [],
-        "ls_0": [],
-        "ls_e": [],
         "lsbu": [],
         "lsbx": [],
         "lsbx_e": [],
@@ -171,11 +165,11 @@
             10.0
         ],
         "ubx_0": [
-            0.0,
-            0.0,
-            0.0,
-            0.0,
-            0.0,
+            0.1,
+            0.01,
+            0.01,
+            0.01,
+            0.01,
             0.0,
             0.0,
             0.0
@@ -204,9 +198,6 @@
         "uphi": [],
         "uphi_0": [],
         "uphi_e": [],
-        "us": [],
-        "us_0": [],
-        "us_e": [],
         "usbu": [],
         "usbx": [],
         "usbx_e": [],
@@ -314,8 +305,8 @@
         ]
     },
     "cython_include_dirs": [
-        "/home/desktop/.local/lib/python3.10/site-packages/numpy/core/include",
-        "/usr/include/python3.10"
+        "/home/duarte/.local/lib/python3.11/site-packages/numpy/core/include",
+        "/home/duarte/.pyenv/versions/3.11.6/include/python3.11"
     ],
     "dims": {
         "N": 40,
@@ -384,9 +375,9 @@
     ],
     "json_file": "acados_ocp.json",
     "model": {
-        "con_h_expr": "@1=fmod(s,86.4), vertcat(((n+right_bound_s(@1){0})-safety_margin), ((n-left_bound_s(@1){0})+safety_margin), 0)",
-        "con_h_expr_0": "@1=fmod(s,86.4), vertcat(((n+right_bound_s(@1){0})-safety_margin), ((n-left_bound_s(@1){0})+safety_margin), 0)",
-        "con_h_expr_e": "@1=fmod(s,86.4), vertcat(((n+right_bound_s(@1){0})-safety_margin), ((n-left_bound_s(@1){0})+safety_margin))",
+        "con_h_expr": "@1=fmod(s,82), vertcat(((n+right_bound_s(@1){0})-safety_margin), ((n-left_bound_s(@1){0})+safety_margin), 0)",
+        "con_h_expr_0": "@1=fmod(s,82), vertcat(((n+right_bound_s(@1){0})-safety_margin), ((n-left_bound_s(@1){0})+safety_margin), 0)",
+        "con_h_expr_e": "@1=fmod(s,82), vertcat(((n+right_bound_s(@1){0})-safety_margin), ((n-left_bound_s(@1){0})+safety_margin))",
         "con_phi_expr": [],
         "con_phi_expr_0": [],
         "con_phi_expr_e": [],
@@ -423,7 +414,7 @@
         "dyn_impl_dae_fun": null,
         "dyn_impl_dae_fun_jac": null,
         "dyn_impl_dae_jac": null,
-        "f_expl_expr": "@1=fmod(s,86.4), @2=(3.54*accel), @3=(0.5*@2), @4=((1.2307*((3.54*(1.42245-(0.014*accel)))/0.307))*sin((1.2628*atan((7.6671*(atan2(((-v_y)-(0.162*yaw_rate)),(0.5+v_x))+delta)))))), @5=((1.0252*((3.54*(1.58922+(0.014*accel)))/0.307))*sin((1.7356*atan((7.1036*atan2(((0.145*yaw_rate)-v_y),(0.5+v_x))))))), vertcat((((v_x*cos(theta))-(v_y*sin(theta)))/(1-(kapparef_s(@1){0}*n))), ((v_x*sin(theta))+(v_y*cos(theta))), (yaw_rate-(kapparef_s(@1){0}*(((v_x*cos(theta))-(v_y*sin(theta)))/(1-(kapparef_s(@1){0}*n))))), (0.282486*((((0.5*@2)+(@3*cos(delta)))-(@4*sin(delta)))+((3.54*v_y)*yaw_rate))), (0.282486*(((@5+(@3*sin(delta)))+(@4*cos(delta)))-((3.54*v_x)*yaw_rate))), derDelta, (17.2503*(((0.162*@4)*cos(delta))-(0.145*@5))), jerk)",
+        "f_expl_expr": "@1=fmod(s,82), @2=(3.54*accel), @3=(0.5*@2), @4=((1.2307*((3.54*(1.42245-(0.014*accel)))/0.307))*sin((1.2628*atan((7.6671*(atan2(((-v_y)-(0.162*yaw_rate)),(0.5+v_x))+delta)))))), @5=((1.0252*((3.54*(1.58922+(0.014*accel)))/0.307))*sin((1.7356*atan((7.1036*atan2(((0.145*yaw_rate)-v_y),(0.5+v_x))))))), vertcat((((v_x*cos(theta))-(v_y*sin(theta)))/(1-(kapparef_s(@1){0}*n))), ((v_x*sin(theta))+(v_y*cos(theta))), (yaw_rate-(kapparef_s(@1){0}*(((v_x*cos(theta))-(v_y*sin(theta)))/(1-(kapparef_s(@1){0}*n))))), (0.282486*((((0.5*@2)+(@3*cos(delta)))-(@4*sin(delta)))+((3.54*v_y)*yaw_rate))), (0.282486*(((@5+(@3*sin(delta)))+(@4*cos(delta)))-((3.54*v_x)*yaw_rate))), derDelta, (17.2503*(((0.162*@4)*cos(delta))-(0.145*@5))), jerk)",
         "f_impl_expr": [],
         "gnsf_nontrivial_f_LO": 1,
         "gnsf_purely_linear": 0,

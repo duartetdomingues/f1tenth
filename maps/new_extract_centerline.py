@@ -10,8 +10,10 @@ from shapely.geometry import LineString, Point
 # === 1. Carregar mapa binário (0 = livre, 1 = obstáculo)
 #map_files = "../maps/map_2025-09-09_10-52-29/map_output"
 map_files = "../maps/test_map/map_output"
-
 map_path = map_files + ".pgm"
+
+direction = "counter-clockwise"  # "clockwise" or "counter-clockwise"
+amostragem = 0.01  # em metros
 
 map_img = cv2.imread(map_path, cv2.IMREAD_GRAYSCALE)
 
@@ -59,6 +61,18 @@ contours, hierarchy = cv2.findContours(binary, cv2.RETR_CCOMP, cv2.CHAIN_APPROX_
 # Filtrar apenas os dois maiores contornos (margens interna e externa)
 contours = sorted(contours, key=cv2.contourArea, reverse=True)[:2]
 
+# Verificar e ajustar os contornos para que fiquem no sentido horário
+for i, contour in enumerate(contours):
+    if direction == "counter-clockwise" and cv2.contourArea(contour, oriented=True) < 0:
+        contours[i] = contour[::-1]  # Inverter a ordem dos pontos
+        print(f"Contour {i} was clockwise and has been reversed to counter-clockwise.")
+    elif direction == "clockwise" and cv2.contourArea(contour, oriented=True) > 0:
+        contours[i] = contour[::-1]  # Inverter a ordem dos pontos
+        print(f"Contour {i} was counter-clockwise and has been reversed to clockwise.")
+    else:
+        print(f"Contour {i} is already in the {direction} direction.")
+
+
 # Garantir que temos exatamente 2 margens
 if len(contours) < 2:
     raise RuntimeError("Não foi possível encontrar as duas margens da pista.")
@@ -71,23 +85,172 @@ def order_contour_points(contour):
     contour = cv2.approxPolyDP(contour, epsilon, True)[:, 0, :]
     return contour
 
-contour1 = order_contour_points(contours[0])
-contour2 = order_contour_points(contours[1])
+from scipy.interpolate import splprep, splev
+def reparametrize_contour(contour, n_points=2000):
+    x, y = contour[:,0], contour[:,1]
+    tck, u = splprep([x, y], s=1.0, per=True)
+    u_new = np.linspace(0, 1, n_points)
+    x_new, y_new = splev(u_new, tck)
+    return np.column_stack([x_new, y_new])
+
+""" contour1 = order_contour_points(contours[0]) # margem externa
+contour2 = order_contour_points(contours[1]) # margem interna """
+contour1 = contours[0][:, 0, :] # margem externa
+contour2 = contours[1][:, 0, :] # margem interna
+
+contours = [contour1, contour2]
 
 # Adiciona o primeiro ponto ao final de cada contorno para fechar o loop
 contour1 = np.vstack([contour1, contour1[0]])
 contour2 = np.vstack([contour2, contour2[0]])
 
+print (f"Total de pontos na margem 1: {len(contour1)}")
+print (f"Total de pontos na margem 2: {len(contour2)}")
+
 # === 5. Emparelhar pontos por proximidade
-centerline_points = []
+centerline_points1 = []
+centerline_points2 = []
+# Processar contorno 0 com 1
 for p1 in contour1:
-    # encontrar ponto mais próximo na outra margem
     dists = np.linalg.norm(contour2 - p1, axis=1)
     p2 = contour2[np.argmin(dists)]
     mid = (p1 + p2) / 2.0
-    centerline_points.append(mid)
+    centerline_points1.append(mid)
 
-centerline_points = np.array(centerline_points)
+# Processar contorno 1 com 0
+for p1 in contour2:
+    dists = np.linalg.norm(contour1 - p1, axis=1)
+    p2 = contour1[np.argmin(dists)]
+    mid = (p1 + p2) / 2.0
+    centerline_points2.append(mid)
+    
+    
+# Plot the two centerlines in different colors
+plt.figure(figsize=(10, 6))
+plt.imshow(binary, cmap='gray', origin='lower')
+plt.plot(np.array(centerline_points1)[:, 0], np.array(centerline_points1)[:, 1], 'g-', label='Centerline 1')
+plt.plot(np.array(centerline_points2)[:, 0], np.array(centerline_points2)[:, 1], 'm-', label='Centerline 2')
+plt.legend()
+plt.title("Two Centerlines in Different Colors")
+plt.axis("equal")
+plt.show()
+    
+from scipy.ndimage import gaussian_filter1d
+from scipy.signal import savgol_filter
+from scipy.interpolate import splprep, splev, interp1d
+from shapely.geometry import LineString
+from scipy.spatial import cKDTree
+import numpy as np
+
+# 5B) Fundir e eliminar quase-duplicados (ex.: a 0.5 px)
+cl_raw = np.vstack([centerline_points1, centerline_points2])
+cl_raw = np.unique(np.round(cl_raw, 0), axis=0)  # arredonda 0.1 px e remove duplicados
+
+# 5C) Construir curva-guia a partir de uma das centerlines já ordenadas (a 1ª)
+#     (fechada para garantir continuidade no seam)
+guide = LineString(np.vstack([centerline_points1, centerline_points1[0]]))
+L_px = guide.length
+
+# 5D) Ordenar os pontos fundidos pela coordenada curvilínea s ao longo da guia
+s_vals = np.array([guide.project(Point(p[0], p[1])) for p in cl_raw])
+ord_idx = np.argsort(s_vals)
+ordered = cl_raw[ord_idx]
+s_sorted = s_vals[ord_idx]
+
+# 5E) Cortar no maior “gap” para evitar salto no fecho (rotaciona o início da lista)
+gaps = np.diff(np.r_[s_sorted, s_sorted[0] + L_px])
+cut = np.argmax(gaps)
+ordered = np.roll(ordered, -(cut + 1), axis=0)
+
+ #(a) deduplicar por raio (em PIXELS) — evita clusters densos que baralham o fit
+def dedup_by_radius(pts, r=0.5):
+    tree = cKDTree(pts)
+    used = np.zeros(len(pts), dtype=bool)
+    keep_idx = []
+    for i in range(len(pts)):
+        if used[i]:
+            continue
+        keep_idx.append(i)
+        idx = tree.query_ball_point(pts[i], r)
+        used[idx] = True
+    return pts[keep_idx]
+
+ordered = dedup_by_radius(ordered, r=0.5)
+
+# (b) filtrar saltos gigantes ao longo da ordem (gaps muito maiores que a mediana)
+step = np.hypot(np.diff(np.r_[ordered[:,0], ordered[0,0]]),
+                np.diff(np.r_[ordered[:,1], ordered[0,1]]))
+med = np.median(step)
+mask = step < 3.0*med
+# 'mask' é por aresta; converter para pontos mantendo sequência:
+keep = np.ones(len(ordered), dtype=bool)
+keep[np.where(~mask)[0]] = False   # remove o ponto anterior ao salto
+ordered = ordered[keep]
+
+# (c) suavizar levemente antes do splprep (evita overshoot)
+win = max(9, (len(ordered)//200)*2 + 1)  # ímpar, proporcional ao N
+x_sg = savgol_filter(ordered[:,0], window_length=win, polyorder=3, mode='wrap')
+y_sg = savgol_filter(ordered[:,1], window_length=win, polyorder=3, mode='wrap')
+ordered = np.column_stack([x_sg, y_sg])
+
+# ----------------------------
+# 5F) Fit periódico suave (usar 'ordered', não 'filtered_points')
+# ----------------------------
+closed = np.vstack([ordered, ordered[0]])  # fecha o loop
+# regra de bolso p/ s ~ (sigma_px**2)*N; assume ~0.5 px de ruído
+s_smooth = (0.5**2) * len(closed)          # começa pequeno; ajusta se necessário
+tck, u = splprep([closed[:,0], closed[:,1]], s=s_smooth, per=True, k=3)  # k=3 (cúbico)
+
+# ----------------------------
+# 5G) Reamostrar por comprimento de arco (uniforme em PIXELS)
+# ----------------------------
+u_dense = np.linspace(0, 1, 4000)
+xd, yd = splev(u_dense, tck)
+ds_dense = np.hypot(np.diff(xd), np.diff(yd))
+s_dense = np.insert(np.cumsum(ds_dense), 0, 0.0)
+L_px_fit = s_dense[-1]
+s_frac = s_dense / L_px_fit
+u_of_s = interp1d(s_frac, u_dense, kind="linear", fill_value="extrapolate")
+
+esp_px = amostragem / resolution
+n_samples = max(16, int(np.floor(L_px_fit / esp_px)))
+s_target_frac = np.linspace(0, 1, n_samples, endpoint=False)
+u_equi = u_of_s(s_target_frac)
+x_eq, y_eq = splev(u_equi, tck)
+centerline_points = np.column_stack([x_eq, y_eq])  # PIXELS, ordenado, equiespaciado
+
+# ----------------------------
+# 5H) Forçar orientação (CW/CCW)
+# ----------------------------
+def signed_area(poly):
+    x, y = poly[:,0], poly[:,1]
+    return 0.5*np.sum(x*np.roll(y,-1) - y*np.roll(x,-1))
+
+if direction == "counter-clockwise" and signed_area(centerline_points) < 0:
+    centerline_points = centerline_points[::-1]
+elif direction == "clockwise" and signed_area(centerline_points) > 0:
+    centerline_points = centerline_points[::-1]
+
+# (Opcional) Checagem de auto-intersecção
+if not LineString(np.vstack([centerline_points, centerline_points[0]])).is_simple:
+    print("Aviso: a centerline ainda tem auto-interseção — aumente s_smooth ou reforce a limpeza.")
+
+
+print(f"Total de pontos na centerline (após fusão e suavização): {len(centerline_points)}")
+# Calculate the total length of the centerline in meters
+centerline_length_m = len(centerline_points) * amostragem
+print(f"Comprimento total da centerline: {centerline_length_m:.2f} metros")
+
+# 5H) Garantir orientação pedida (CW/CCW)
+def signed_area(poly):
+    x, y = poly[:, 0], poly[:, 1]
+    return 0.5 * np.sum(x * np.roll(y, -1) - y * np.roll(x, -1))
+
+if direction == "counter-clockwise" and signed_area(centerline_points) < 0:
+    centerline_points = centerline_points[::-1]
+elif direction == "clockwise" and signed_area(centerline_points) > 0:
+    centerline_points = centerline_points[::-1]
+
 
 # === 6. Visualizar
 plt.figure(figsize=(10, 6))
@@ -95,6 +258,8 @@ plt.imshow(binary, cmap='gray', origin='lower')
 plt.plot(contour1[:, 0], contour1[:, 1], 'r-', label='Margem 1')
 plt.plot(contour2[:, 0], contour2[:, 1], 'b-', label='Margem 2')
 plt.plot(centerline_points[:, 0], centerline_points[:, 1], 'g-', linewidth=1.5, label='Centerline')
+plt.scatter(centerline_points[:, 0], centerline_points[:, 1], c=np.linspace(0, 1, len(centerline_points)), cmap='viridis', s=10, label='Centerline Points')
+plt.colorbar(label='Normalized Position Along Centerline')
 plt.legend()
 plt.title("Centerline calculada a partir dos contornos")
 plt.axis("equal")
@@ -129,7 +294,6 @@ total_length_px = s[-1]
 print(f"Comprimento total da centerline: {total_length_px*resolution:.2f} metros")
 
 
-amostragem = 0.1  # em metros
 
 # Amostrar pontos a cada 0.01m usando interpolação linear
 s_uniform = np.arange(0, total_length_px * resolution + amostragem, amostragem)
@@ -189,9 +353,23 @@ start_index = np.argmin(distances_to_origin)
 x = np.concatenate([x[start_index:], x[:start_index]])
 y = np.concatenate([y[start_index:], y[:start_index]])
 
-# Inverter sentido da trajetória (reverse direction)
-""" x = x[::-1]
-y = y[::-1] """
+# Plot in real-world coordinates
+plt.figure(figsize=(10, 6))
+
+plt.arrow(
+    x[0], y[0],
+    (x[1] - x[0]) * 100, (y[1] - y[0]) * 100,
+    head_width=1.2, head_length=1.2, width=0.5,  length_includes_head=False, fc='blue', ec='blue'
+)
+plt.plot(x, y, 'g-', label='Centerline (real coordinates)')
+plt.scatter(origin[0], origin[1], c='red', s=50, label='Map Origin')
+plt.xlabel('X [m]')
+plt.ylabel('Y [m]')
+plt.title('Centerline in Real-World Coordinates')
+plt.legend()
+plt.axis('equal')
+plt.grid(True)
+plt.show()
 
 from scipy.interpolate import CubicSpline
 
@@ -221,7 +399,7 @@ kappa_d = kappa.copy()
 
 
 # 2) filtro passa-baixo em κ, periódico em s
-from scipy.ndimage import gaussian_filter1d
+
 
 s_step = 0.01  # usa o mesmo passo que o teu MPC por distância (Δs_MPC)
 fwhm_m = 0.1  # largura de suavização em metros (ajusta: 0.15–0.40 m p/ F1TENTH)
@@ -324,8 +502,32 @@ def find_normal_distances(centerline_points, contour_left, contour_right):
 
         # Cria linhas longas nas direções normais
         # Semirreta: começa em pt e vai para a esquerda (normal_left)
-        line_left = LineString([pt, pt + 100000 * normal_left])
-        line_right = LineString([pt, pt + 100000 * normal_right])
+        line_legth = 10/resolution # 10 metros
+        line_left = LineString([pt, pt + line_legth * normal_left])
+        line_right = LineString([pt, pt + line_legth * normal_right])
+        
+        # Plot the normal lines for visualization
+        
+        if i == 0:  # Plot every 50th normal for clarity
+            
+            plt.figure(figsize=(10, 6))
+            plt.imshow(occupancy, cmap='gray', origin='lower')
+            plt.plot([pt[0], pt[0] + line_legth * normal_left[0]], 
+                     [pt[1], pt[1] + line_legth * normal_left[1]], 'r--', linewidth=0.5, label='Normal Left' if i == 0 else "")
+            plt.plot([pt[0], pt[0] + line_legth * normal_right[0]], 
+                     [pt[1], pt[1] + line_legth * normal_right[1]], 'b--', linewidth=0.5, label='Normal Right' if i == 0 else "")
+            plt.plot(contour_left[:, 0], contour_left[:, 1], 'r-', label='Contour Left')
+            plt.plot(contour_right[:, 0], contour_right[:, 1], 'b-', label='Contour Right')
+            plt.scatter(pt[0], pt[1], c='yellow', s=10, label='Centerline Point' if i == 0 else "")
+            plt.arrow(
+                pt[0], pt[1],
+                tangent[0] * 10, tangent[1] * 10,  # Scale the tangent vector for better visualization
+                head_width=5, head_length=10, fc='orange', ec='orange', label='Direction' if i == 0 else ""
+            )
+            plt.legend()
+            plt.title("Visualization of Normals at Centerline Point")
+            plt.axis("equal")
+            plt.show()
 
         def get_nearest_intersection(intersection, pt, normal):
             if intersection.is_empty:
@@ -341,19 +543,38 @@ def find_normal_distances(centerline_points, contour_left, contour_right):
             return dists
 
         # Margem esquerda
-        intersection_left = contour_line_left.intersection(line_left)
+        # Find the intersection point for the left margin
+        intersection_left = contour_line_left.intersection(line_left)       
         dists_left = get_nearest_intersection(intersection_left, pt, normal_left)
-        intersection_right = contour_line_right.intersection(line_left)
-        dists_right = get_nearest_intersection(intersection_right, pt, normal_left)
-
-        if dists_left is not None and dists_right is not None:
-            dist = min(min(dists_left), min(dists_right))
-        elif dists_left is not None:
+        
+        if i==70:
+            plt.figure(figsize=(10, 6))
+            plt.imshow(occupancy, cmap='gray', origin='lower')
+            plt.plot(contour_left[:, 0], contour_left[:, 1], 'r-', label='Contour Left')
+            plt.plot([pt[0], pt[0] + line_legth * normal_left[0]], 
+                        [pt[1], pt[1] + line_legth * normal_left[1]], 'g--', label='Normal Line') 
+            if not intersection_left.is_empty:
+                if intersection_left.geom_type == 'MultiPoint':
+                    for p in intersection_left.geoms:
+                        plt.scatter(p.x, p.y, c='blue', s=50, label='Intersection Point')
+                elif intersection_left.geom_type == 'Point':
+                    plt.scatter(intersection_left.x, intersection_left.y, c='blue', s=50, label='Intersection Point')
+            else:
+                print("No intersection found for left margin at first point.")
+            plt.scatter(pt[0], pt[1], c='yellow', s=50, label='Centerline Point')
+            plt.legend()
+            plt.title("Intersection of Normal Line and Contour")
+            plt.axis("equal")
+            plt.show()
+            
+        if dists_left is not None:
             dist = min(dists_left)
-        elif dists_right is not None:
-            dist = min(dists_right)
         else:
-            print(f"Warning: No intersection found for left margin at point {i}, using distance from right margin.")
+            if n_l or n_l[-1] is not None:
+                print(f"Warning: No intersection found for left margin at point {i}, using last valid distance.")
+            else:   
+                print(f"Warning: No intersection found for left margin at point {i}, using zero distance.")
+                exit(1)
 
         """if nearest_left is None:
             dist_left = n_l[-1] 
@@ -377,29 +598,23 @@ def find_normal_distances(centerline_points, contour_left, contour_right):
         # Margem direita
         intersection_right = contour_line_right.intersection(line_right)
         dists_right = get_nearest_intersection(intersection_right, pt, normal_right)
-        intersection_left = contour_line_left.intersection(line_right)
+        """ intersection_left = contour_line_left.intersection(line_right)
         dists_left = get_nearest_intersection(intersection_left, pt, normal_right)
         if dists_left is not None and dists_right is not None:
             dist = min(min(dists_left), min(dists_right))
         elif dists_left is not None:
             dist = min(dists_left)
         elif dists_right is not None:
+            dist = min(dists_right) """
+            
+        if dists_right is not None:
             dist = min(dists_right)
-
-        """if nearest_right is None:
-            dist_right = n_r[-1]
-            print(f"Warning: No intersection found for right margin at point {i}, using last valid distance.")
-             intersection_left = contour_line_left.intersection(line_right)
-            nearest_left, dist_right = get_nearest_intersection(intersection_left, pt, normal_right)
-            if nearest_left is None:
-                # Fallback: ponto mais próximo do contorno direito
-                distances = np.linalg.norm(contour_right - pt, axis=1)
-                nearest_idx = np.argmin(distances)
-                nearest_right = contour_right[nearest_idx]
-                dist_right = np.dot(nearest_right - pt, normal_right)
-                print(f"Warning: No intersection found for right margin at point {i}, using nearest point.")
-            else:
-                print(f"Warning: No intersection found for right margin at point {i}, using nearest point from left contour.") """
+        else:
+            if n_r or n_r[-1] is not None:
+                print(f"Warning: No intersection found for right margin at point {i}, using last valid distance.")
+            else:   
+                print(f"Warning: No intersection found for right margin at point {i}, using zero distance.")
+                exit(1)
                 
         #print(f"margem direita: {dist}")
         n_r.append(dist)
@@ -408,8 +623,15 @@ def find_normal_distances(centerline_points, contour_left, contour_right):
 
 centerline_real = np.column_stack((x_s_pixel, y_s_pixel))
 
+if direction == "clockwise":
+    contour_left = contour1  # margem externa
+    contour_right = contour2 # margem interna
+else:
+    contour_left = contour2 # margem interna
+    contour_right = contour1 # margem externa
+
 # Calcule as distâncias normais para cada margem
-n_l_pixel, n_r_pixel = find_normal_distances(centerline_real, contour1, contour2)
+n_l_pixel, n_r_pixel = find_normal_distances(centerline_real, contour_left, contour_right)
 """ n_l_pixel = np.abs(n_l_pixel)
 n_r_pixel = np.abs(n_r_pixel) """
 
@@ -418,8 +640,8 @@ n_r = n_r_pixel * resolution
 
 #plot the normal distances to the boundaries
 plt.figure(figsize=(10, 4))
-plt.plot( s_uniform, n_l, label='Margem esquerda (n_l)')
-plt.plot( s_uniform, n_r, label='Margem direita (n_r)')
+plt.scatter(s_uniform, n_l, label='Margem esquerda (n_l)', s=10, c='red')
+plt.scatter(s_uniform, n_r, label='Margem direita (n_r)', s=10, c='blue')
 plt.xlabel('s [m]')
 plt.ylabel('Distância normal [m]')
 plt.title('Distâncias normais às margens ao longo de s')

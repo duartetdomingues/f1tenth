@@ -192,7 +192,7 @@ f_expl_func = Function('f_expl_func', {s; n; heading_u; vx; vy; yaw_rate; delta;
 % smooth_abs = sqrt(heading_u^2 + 1e-6);
 % term1 = (car_length / 2) * sin(smooth_abs);  % sin(|µ|) com CasADi
 % term2 = (track_width / 2) * cos(heading_u);
-b_left = n  + safety_margin - nl_s;
+b_left = n - nl_s + safety_margin;
 b_right= -n  + safety_margin -nr_s;
 
 % b_left = n - term1 + term2 + safety_margin - nl_s;
@@ -201,32 +201,43 @@ b_right= -n  + safety_margin -nr_s;
 % b_right=0.1;
 
 %% Tires friction ellipse
-phi_F = (rho_long*Fm/2)^2 + Fy_f^2  -  (lambda_f*Df)^2;
-phi_R = (rho_long*Fm/2)^2 + Fy_r^2  -  (lambda_r*Dr)^2;
+% phi_F = (rho_long*Fm/2)^2 + Fy_f^2  -  (lambda_f*Df)^2;
+% phi_R = (rho_long*Fm/2)^2 + Fy_r^2  -  (lambda_r*Dr)^2;
+Fx_f = Fm/2;   % se quiseres dividir entre rodas da frente
+Fx_r = Fm/2;   % idem trás
+
+Fx_max_f = rho_long * Fn_f;
+Fy_max_f = lambda_f * Fn_f * Df;   % usando coef Df calibrado
+phi_F = (Fx_f/Fx_max_f)^2 + (Fy_f/Fy_max_f)^2 - 1;
+
+Fx_max_r = rho_long * Fn_r;
+Fy_max_r = lambda_r * Fn_r * Dr;
+phi_R = (Fx_r/Fx_max_r)^2 + (Fy_r/Fy_max_r)^2 - 1;
+
+model_var.phi_F_func = Function('phi_F_func', {x, u, p}, {phi_F});
+model_var.phi_R_func = Function('phi_R_func', {x, u, p}, {phi_R});
+
 
 %% Nonlinear constraints
  model.con_h_expr=[...     
      b_left;
-     b_right%;
-    % phi_F;
-    % phi_R        
+     b_right;
+     phi_F;
+     phi_R        
   ];
 
 model.con_h_expr_0= model.con_h_expr;
 
-%model.con_h_expr =[];
 
+%infty = get_acados_infty();                     % for one-sided constraints
 infty = 100;                     % for one-sided constraints
-constraints.lb_h = [-infty; -infty ];
-constraints.ub_h = [0; 0];
+% constraints.lb_h = [-infty; -infty ];
+% constraints.ub_h = [0; 0];
 % constraints.lb_h = [-infty; -infty ];
 % constraints.ub_h = [infty; infty];
-% constraints.lb_h = [-infty; -infty; -infty; -infty];
-% constraints.ub_h = [nl_s; nr_s; 0; 0];
+constraints.lb_h = [-infty; -infty; -infty; -infty];
+constraints.ub_h = [0; 0 ; 10; 10];
 % 
-% constraints.lb_h = [-infty; -infty ];
-% constraints.ub_h = [nl_s; nr_s];
-
 
 %% State bounds
 constraints.throttle_min = -0.3;

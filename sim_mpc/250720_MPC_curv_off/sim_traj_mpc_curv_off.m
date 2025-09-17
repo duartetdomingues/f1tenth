@@ -23,10 +23,10 @@ weight_ds = 0.1;
 weight_beta = 0.3;
 
 weight_ds = 15;
-weight_beta = 0.15;
-weight_dalpha = 0.05;
-weight_dthrottle = 0.05;
-safety_margin = 0.2; % 10 cm
+weight_beta = 0.5;
+weight_dalpha = 0.1;
+weight_dthrottle = 0.1;
+safety_margin = 0.1; % 10 cm
 
 p=[weight_ds; weight_beta; weight_dalpha; weight_dthrottle; safety_margin];
 
@@ -51,12 +51,12 @@ track.s_traj=data(:,1);
 track.x_traj=data(:,2);
 track.y_traj=data(:,3);
 track.kappa_traj=data(:,4);
-% track.nl_traj =data(:,5);
-% track.nr_traj =data(:,6);
+track.nl_traj =data(:,5);
+track.nr_traj =data(:,6);
 
-track_width=1; % in m
-track.nl_traj =ones(length(track.kappa_traj),1)*track_width;
-track.nr_traj =ones(length(track.kappa_traj),1)*track_width;
+% track_width=1; % in m
+% track.nl_traj =ones(length(track.kappa_traj),1)*track_width;
+% track.nr_traj =ones(length(track.kappa_traj),1)*track_width;
 
 addpath('./aux_functions/');
 
@@ -247,12 +247,15 @@ for t_idx = 1:T_s_total/Ts-1
     if status ~= 0  
         warning(['acados ocp solver failed with status ',num2str(status)]);
         solver.print('stat')
+
         %break
         x = x + full(model_var.f_expl_func(x(1),x(2),x(3),x(4),x(5),x(6),x(7),x(8),u(1),u(2)))*Ts;
         u=u_history(end,:)';
 
         mpc_sim_u{t_idx} = zeros(2,10);
         mpc_sim_x{t_idx} = zeros(8,10);
+
+        
         return
     
     else
@@ -275,6 +278,8 @@ for t_idx = 1:T_s_total/Ts-1
     end
     
 
+     disp("phi_F = " + full(model_var.phi_F_func(x, u, p)));
+     disp("phi_R = " + full(model_var.phi_R_func(x, u, p)));
     
     u_history=[u_history; u'];
     history = [history; x'];
