@@ -71,14 +71,20 @@ def init_sim_plot(tr, d_left, d_right, x0):
     ax.legend()
     ax.grid()
     
+    plt.ion()
     plt.show()
     
     return fig
     
-def update_sim_plot(fig, tr, d_left, d_right, x_horizon):
+def update_sim_plot(fig, tr, d_left, d_right, x_horizon, status):
+    if not plt.fignum_exists(fig.number):
+        print("Figure closed. Exiting...")
+        exit()
+
     print("Updating simulation plot...")
     
-    fig, ax = plt.subplots(figsize=(10, 6))
+    ax = fig.axes[0]       # Get the single axis of the figure
+    ax.cla()               # Clear the content of the plot
 
     [x, y, psi] = frenet_to_global(x_horizon[:, 0], x_horizon[:, 1], x_horizon[:, 2], tr)
 
@@ -92,11 +98,18 @@ def update_sim_plot(fig, tr, d_left, d_right, x_horizon):
     ax.quiver(x[1], y[1], np.cos(psi[1]), np.sin(psi[1]),
               angles='xy', scale_units='xy', scale=1, color='black', label="Vehicle", zorder=2)
     ax.plot(x, y, 'o-', color='blue', label="Predicted Path", zorder=3)
+
+    # Add a light indicator for MPC status
+    light_color = "green" if status == 0 else "red"
+    ax.scatter([], [], color=light_color, label="MPC Status", s=200, edgecolors='black', zorder=4)
+
     ax.axis("equal")
     ax.legend()
     ax.grid()
 
-    plt.show()
+    # Refresh the same figure
+    fig.canvas.draw()
+    fig.canvas.flush_events()
     
     return fig
     

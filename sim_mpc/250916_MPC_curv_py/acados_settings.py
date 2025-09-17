@@ -39,15 +39,16 @@ from typing import Tuple
 from utils.indicies import StateIndex
 
 
-def acados_settings(s0, kapparef, d_left, d_right,
-                    stmpc_config, car_config,
-                    tire_config) -> Tuple:
+def acados_settings(
+    s0, kapparef, d_left, d_right, stmpc_config, car_config, tire_config
+) -> Tuple:
     # create render arguments
     ocp = AcadosOcp()
 
     # export model
-    model, constraint, params = bicycle_model(s0, kapparef, d_left, d_right, stmpc_config,
-                                              car_config, tire_config)
+    model, constraint, params = bicycle_model(
+        s0, kapparef, d_left, d_right, stmpc_config, car_config, tire_config
+    )
 
     # define acados ODE
     model_ac = AcadosModel()
@@ -133,23 +134,18 @@ def acados_settings(s0, kapparef, d_left, d_right,
 
     # state constraint
     state_constraint_min = np.array(
-        [
-            constraint.v_x_min,
-            constraint.delta_min,
-            constraint.a_min
-        ]
+        [constraint.v_x_min, constraint.delta_min, constraint.a_min]
     )
     state_constraint_max = np.array(
+        [constraint.v_x_max, constraint.delta_max, constraint.a_max]
+    )
+    state_constraint_index = np.array(
         [
-            constraint.v_x_max,
-            constraint.delta_max,
-            constraint.a_max
+            StateIndex.VELOCITY_V_X.value,
+            StateIndex.STEERING_ANGLE_DELTA.value,
+            StateIndex.ACCEL.value,
         ]
     )
-    state_constraint_index = np.array([
-        StateIndex.VELOCITY_V_X.value,
-        StateIndex.STEERING_ANGLE_DELTA.value,
-        StateIndex.ACCEL.value])
 
     ocp.constraints.lbx_0 = state_constraint_min
     ocp.constraints.ubx_0 = state_constraint_max
@@ -174,14 +170,8 @@ def acados_settings(s0, kapparef, d_left, d_right,
 
     # Nonlinear constraint: longitudinal force; Lateral force; inner_bound; outer_bound
     # Nonlinear constraint
-    Nonlinear_constraint_min = np.array([
-        0,
-        -model.track_max,
-        0])
-    Nonlinear_constraint_max = np.array([
-        model.track_max,
-        0,
-        1])
+    Nonlinear_constraint_min = np.array([0, -model.track_max, 0])
+    Nonlinear_constraint_max = np.array([model.track_max, 0, 1])
     # Nonlinear_soft_min_value = np.zeros(nsh)
     # Nonlinear_soft_max_value = np.zeros(nsh) + np.array([0.1, 0.1, 0])
     Nonlinear_constraint_index = np.array([num for num in range(nsh)])
@@ -214,7 +204,7 @@ def acados_settings(s0, kapparef, d_left, d_right,
     ocp.solver_options.tf = stmpc_config.N / stmpc_config.MPC_freq
     ocp.solver_options.qp_solver = "PARTIAL_CONDENSING_HPIPM"
     ocp.solver_options.nlp_solver_type = "SQP_RTI"
-    ocp.solver_options.hessian_approx = "GAUSS_NEWTON" #NOTE: do not believe the acados warning, setting hessian approximation to "EXACT" makes the solver fail
+    ocp.solver_options.hessian_approx = "GAUSS_NEWTON"  # NOTE: do not believe the acados warning, setting hessian approximation to "EXACT" makes the solver fail
     ocp.solver_options.integrator_type = "ERK"
     ocp.solver_options.sim_method_num_stages = 4
     ocp.solver_options.sim_method_num_steps = 3
@@ -229,19 +219,21 @@ def acados_settings(s0, kapparef, d_left, d_right,
 
 def get_parameters(cfg) -> np.ndarray:
     """Get parameters from stmpc_config"""
-    params = np.array([
-        2,  # initial velocity, not important it is immediately changed
-        cfg.qadv,
-        cfg.qv,
-        cfg.qn,
-        cfg.qalpha,
-        cfg.qjerk,
-        cfg.qddelta,
-        cfg.alat_max,
-        cfg.a_min,
-        cfg.a_max,
-        cfg.track_safety_margin,
-        cfg.overtake_d
-    ]).astype(float)
+    params = np.array(
+        [
+            2,  # initial velocity, not important it is immediately changed
+            cfg.qadv,
+            cfg.qv,
+            cfg.qn,
+            cfg.qalpha,
+            cfg.qjerk,
+            cfg.qddelta,
+            cfg.alat_max,
+            cfg.a_min,
+            cfg.a_max,
+            cfg.track_safety_margin,
+            cfg.overtake_d,
+        ]
+    ).astype(float)
 
     return params

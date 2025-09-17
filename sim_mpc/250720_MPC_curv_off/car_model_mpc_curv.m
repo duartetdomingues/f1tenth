@@ -21,7 +21,7 @@ throttle    = MX.sym('throttle'); % T
 x = [s;n;heading_u;vx;vy;yaw_rate;delta;throttle];
 nx=length(x);
 
-%% Controlo u = [δ_req; T_req]
+%% Controlo u = [d_delta; d_throttle]
 d_delta =  MX.sym('d_delta');
 d_throttle =  MX.sym('d_throttle');
 

@@ -1,7 +1,7 @@
 ##########################
 # Controller settings    #
 ##########################
-N: 40
+N: 10 #40
 t_delay: 0.0025 #0.01
 steps_delay: 3
 MPC_freq: 20 #40
@@ -51,7 +51,7 @@ alat_max: !!float 10  #12 maximum lateral force [m/s^1]
 #####################
 # Cost Flags #
 #####################
-vy_minimization: false # If true, the cost function will minimize the lateral velocity
+vy_minimization: true # If true, the cost function will minimize the lateral velocity
 adv_maximization: false
 
 #####################
@@ -60,5 +60,5 @@ adv_maximization: false
 combined_constraints: "None" # ellipse/diamond/anything else for None
 
 # model flags #
-load_transfer: dalse
+load_transfer: true
 correct_v_y_dot: true
