@@ -277,17 +277,17 @@ class MPCSim:
     # -------------- loop principal --------------
     def run(self, sim_time: float) -> SimResult:
         n_steps = int(sim_time * self.stmpc.MPC_freq)
-        x_hist = np.zeros((n_steps + 1, self.model.n_x))
-        u_hist = np.zeros((n_steps, self.model.n_u))
-        status_hist = np.zeros(n_steps, dtype=int)
-        solve_ms = np.zeros(n_steps)
+        x_hist = []
+        u_hist = []
+        status_hist = []
+        solve_ms = []
 
-        x_hist[0, :] = self.x
+        x_hist.append(self.x.copy())
 
         for k in range(n_steps):
             status, xN, uN, ms = self._solve_one_step()
-            status_hist[k] = status
-            solve_ms[k] = ms
+            status_hist.append(status)
+            solve_ms.append(ms)
 
             if status != 0:
                 sys.stderr.write(
@@ -383,18 +383,18 @@ class MPCSim:
                 )
 
             # logging e avanço
-            x_hist[k + 1, :] = x_next
-            u_hist[k, :] = u_applied
+            x_hist.append(x_next)
+            u_hist.append(u_applied)
             self.u_prev = u_applied
             self.x = x_next
 
         return SimResult(
-            x_hist=x_hist,
-            u_hist=u_hist,
-            status=status_hist,
-            solve_ms=solve_ms,
+            x_hist=np.array(x_hist),
+            u_hist=np.array(u_hist),
+            status=np.array(status_hist),
+            solve_ms=np.array(solve_ms),
             dt=self.dt,
-            freq=float(self.stmpc.MPC_freq),
+            freq=np.array(float(self.stmpc.MPC_freq)),
             mpc_self=self
         )
 

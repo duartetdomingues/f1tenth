@@ -1,7 +1,7 @@
 {
-    "acados_include_path": "/home/desktop/acados/include",
-    "acados_lib_path": "/home/desktop/acados/lib",
-    "code_export_directory": "/home/desktop/f1tenth/c_generated_code",
+    "acados_include_path": "/home/duarte/acados/include",
+    "acados_lib_path": "/home/duarte/acados/lib",
+    "code_export_directory": "/home/duarte/Desktop/f1tenth/c_generated_code",
     "constraints": {
         "C": [],
         "C_e": [],
@@ -39,9 +39,6 @@
             6,
             7
         ],
-        "idxs_rev": [],
-        "idxs_rev_0": [],
-        "idxs_rev_e": [],
         "idxsbu": [],
         "idxsbx": [],
         "idxsbx_e": [],
@@ -89,9 +86,6 @@
         "lphi": [],
         "lphi_0": [],
         "lphi_e": [],
-        "ls": [],
-        "ls_0": [],
-        "ls_e": [],
         "lsbu": [],
         "lsbx": [],
         "lsbx_e": [],
@@ -139,9 +133,6 @@
         "uphi": [],
         "uphi_0": [],
         "uphi_e": [],
-        "us": [],
-        "us_0": [],
-        "us_e": [],
         "usbu": [],
         "usbx": [],
         "usbx_e": [],
@@ -194,8 +185,8 @@
         "zu_e": []
     },
     "cython_include_dirs": [
-        "/home/desktop/.local/lib/python3.10/site-packages/numpy/core/include",
-        "/usr/include/python3.10"
+        "/home/duarte/.local/lib/python3.11/site-packages/numpy/core/include",
+        "/home/duarte/.pyenv/versions/3.11.6/include/python3.11"
     ],
     "dims": {
         "N": 10,

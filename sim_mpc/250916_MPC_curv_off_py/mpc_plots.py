@@ -19,13 +19,78 @@ import argparse
 from pathlib import Path
 import numpy as np
 import matplotlib
+import signal, sys
+import select
+from screeninfo import get_monitors  # pip install screeninfo
+from PyQt5.QtCore import Qt   # <-- importa aqui
 
-matplotlib.use('TkAgg')
-matplotlib.rcParams['figure.raise_window'] = False  # não trazer a janela para a frente
+matplotlib.use("Qt5Agg")
+matplotlib.rcParams['figure.raise_window'] = False
 
 import matplotlib.pyplot as plt
 
 from aux_func import frenet_to_global
+
+def handler(sig, frame):
+    plt.close("all")
+    print("\nInterrompido com Ctrl+C")
+    sys.exit(0)
+
+def wait_for_enter_or_ctrl_c():
+    print("Pressione Enter para continuar ou Ctrl+C para sair...")
+    while True:
+        try:
+            # espera 0.1s para ver se há algo no stdin
+            r, _, _ = select.select([sys.stdin], [], [], 0.1)
+            if r:  # se algo foi digitado
+                line = sys.stdin.readline()
+                if line.strip() == "":  # Enter
+                    break
+        except KeyboardInterrupt:
+            print("\nInterrompido com Ctrl+C")
+            raise
+
+def position_window(fig, offset_x=100, offset_y=100):
+
+    w = fig.canvas.manager.window
+    backend = matplotlib.get_backend()
+
+    # pega monitores disponíveis
+    monitors = get_monitors()
+    if len(monitors) < 2:
+        print("Só encontrei 1 monitor. Abrindo na tela principal.")
+        return
+    
+    
+    secondary_monitor = next((m for m in monitors if not m.is_primary), None)
+    if secondary_monitor is None:
+        print("Não foi encontrado um monitor secundário. Abrindo na tela principal.")
+        return
+        
+    # tenta posição para o lado (segundo monitor à direita)
+    m2 = secondary_monitor
+    print(f"Posicionando janela no monitor {m2.name} ({m2.width}x{m2.height} @ {m2.x},{m2.y})")
+    target_x = m2.x + offset_x
+    target_y = m2.y + offset_y
+
+    if "TkAgg" in backend:
+        try:
+            print(f"Posicionando janela TkAgg em {target_x},{target_y}")
+            w.geometry(f"+{target_x}+{target_y}")
+            #w.state("zoomed")
+        except Exception:
+            print("Não consegui posicionar janela TkAgg.")
+            
+
+    elif "Qt5Agg" in backend or "QtAgg" in backend:
+       
+        print(f"Posicionando janela Qt5Agg em {target_x},{target_y}")
+        w.setWindowFlag(Qt.WindowDoesNotAcceptFocus, True)
+        w.move(target_x, target_y)
+        #w.showMaximized()
+
+
+   
 
 def _ensure_2d(a: np.ndarray) -> np.ndarray:
     a = np.asarray(a)
@@ -77,13 +142,7 @@ def init_sim_plot(tr, d_left, d_right, x0):
     ax.grid()
     
     plt.ion()
-    w = fig.canvas.manager.window
-    try:
-        # Exemplo: posição x=2000, y=100 (ajuste conforme sua resolução/arranjo de monitores)
-        w.geometry("+2000+100")
-        w.state("zoomed")
-    except Exception:
-        pass
+    position_window(fig)
     plt.show()
     
     return fig
@@ -148,59 +207,67 @@ def plot_states(mpc_self,x_hist: np.ndarray, u_hist: np.ndarray, dt: float,
     x_hist = x_hist[:T, :]
     u_hist = u_hist[:T-1, :]
 
-    # --- States ---
-    fig1, axes = plt.subplots(3, 1, sharex=True, figsize=(8, 7))
-    axes[0].plot(t, x_hist[:, 0], 'o-', label="s [m]")
-    axes[0].set_ylabel("s [m]")
-    if x_hist.shape[1] > 1:
-        axes[1].plot(t, x_hist[:, 1], 'o-', label="n [m]")
-        axes[1].set_ylabel("n [m]")
-    if x_hist.shape[1] > 2:
-        axes[2].plot(t, x_hist[:, 2], 'o-', label="theta [rad]")
-        axes[2].set_ylabel("theta [rad]")
-    axes[-1].set_xlabel("t [s]")
-    for ax in axes:
-        ax.legend()
+    # --- States ----
+    fig1, (ax1, ax2, ax3, ax4, ax5, ax6) = plt.subplots(6, 1, sharex=True, figsize=(8, 12))
+    ax1.plot(t, x_hist[:, 0], 'o-', label="s [m]")
+    ax1.set_ylabel("s [m]")
+    ax1.legend()
+    ax1.grid(True)
+    ax2.plot(t, x_hist[:, 1], 'o-', label="n [m]")
+    ax2.set_ylabel("n [m]")
+    ax2.legend()
+    ax2.grid(True)
+    ax3.plot(t, x_hist[:, 2], 'o-', label="theta [rad]")
+    ax3.set_ylabel("theta [rad]")
+    ax3.legend()
+    ax3.grid(True)
+    ax4.plot(t, x_hist[:, 3], 'o-', label="v_x [m/s]")
+    ax4.set_ylabel("v_x [m/s]")
+    ax4.legend()
+    ax4.grid(True)
+    ax5.plot(t, x_hist[:, 4], 'o-', label="v_y [m/s]")
+    ax5.set_ylabel("v_y [m/s]")
+    ax5.legend()
+    ax5.grid(True)
+    ax6.plot(t, x_hist[:, 5], 'o-', label="yaw_rate [rad/s]")
+    ax6.set_ylabel("yaw_rate [rad/s]")
+    ax6.legend()
+    ax6.grid(True)
+    ax6.set_xlabel("t [s]")
+
     fig1.tight_layout()
 
-    # --- Velocities/Yaw ---
-    if x_hist.shape[1] >= 7:
-        fig2, axes2 = plt.subplots(3, 1, sharex=True, figsize=(8, 7))
-        axes2[0].plot(t, x_hist[:, 3], 'o-', label="v_x [m/s]")
-        axes2[0].set_ylabel("v_x [m/s]")
-        axes2[1].plot(t, x_hist[:, 4], 'o-', label="v_y [m/s]")
-        axes2[1].set_ylabel("v_y [m/s]")
-        axes2[2].plot(t, x_hist[:, 5], 'o-', label="yaw_rate [rad/s]")
-        axes2[2].set_ylabel("yaw_rate [rad/s]")
-        axes2[-1].set_xlabel("t [s]")
-        for ax in axes2:
-            ax.legend()
-        fig2.tight_layout()
-    else:
-        fig2 = None
+    # --- Inputs em 4 subplots ---
+    fig3, (ax3a, ax3b, ax3c, ax3d) = plt.subplots(4, 1, figsize=(10, 10), sharex=True)
 
-    # --- Inputs ---
-    fig3, axes3 = plt.subplots(2, 1, sharex=True, figsize=(8, 6))
-    axes3[0].plot(tu, u_hist[:, 1], 'o-', label="dthrottle [m/s^3]")
-    axes3[0].set_ylabel("dthrottle [m/s^3]")
-    axes3[1].plot(tu, u_hist[:, 0], 'o-', label="ddelta [rad/s]")
-    axes3[1].set_ylabel("ddelta [rad/s]")
-    axes3[-1].set_xlabel("t [s]")
-    for ax in axes3:
-        ax.legend()
+    ax3a.set_title("Control Inputs over Time")
+    # delta
+    ax3a.plot(t, x_hist[:, 6], 'o-', color="tab:red", label="delta [rad]")
+    ax3a.set_ylabel("delta [rad]")
+    ax3a.legend()
+    ax3a.grid(True)
+    # throttle
+    ax3b.plot(t, x_hist[:, 7], 'o-', color="tab:green", label="throttle [m/s^2]")
+    ax3b.set_xlabel("t [s]")
+    ax3b.set_ylabel("throttle [m/s^2]")
+    ax3b.legend()
+    ax3b.grid(True)
+
+    ax3c.set_title("Control Input Rates over Time")
+    # ddelta
+    ax3c.plot(tu, u_hist[:, 0], 'o-', color="tab:orange", label="ddelta [rad/s]")
+    ax3c.set_ylabel("ddelta [rad/s]")
+    ax3c.legend()
+    ax3c.grid(True)
+    # dthrottle
+    ax3d.plot(tu, u_hist[:, 1], 'o-', color="tab:blue", label="dthrottle [m/s^3]")
+    ax3d.set_ylabel("dthrottle [m/s^3]")
+    ax3d.legend()
+    ax3d.grid(True)
+    
     fig3.tight_layout()
 
-    fig4, ax4 = plt.subplots(2, 1, sharex=True, figsize=(8, 6))
-    ax4[0].plot(t, x_hist[:, 7], 'o-', label="throttle [m/s^2]")
-    ax4[0].set_ylabel("throttle [m/s^2]")
-    ax4[1].plot(t, x_hist[:, 6], 'o-', label="delta [rad]")
-    ax4[1].set_ylabel("delta [rad]")
-    ax4[-1].set_xlabel("t [s]")
-    for ax in ax4:
-        ax.legend()
-    fig4.tight_layout()
-
-    fig5, ax5 = plt.subplots(6, 1, sharex=True, figsize=(8, 6))
+    fig5, ax5 = plt.subplots(6, 1, sharex=True, figsize=(10, 10))
     ax5[0].plot(t, mpc_self.Fz_f, 'o-', label="Fz_f [N]")
     ax5[0].set_ylabel("Fz_f [N]")
     ax5[1].plot(t, mpc_self.Fz_r, 'o-', label="Fz_r [N]")
@@ -238,8 +305,18 @@ def plot_states(mpc_self,x_hist: np.ndarray, u_hist: np.ndarray, dt: float,
         fig3.savefig(out3, dpi=150)
         print(f"Saved: {out1}{', ' + out2 if fig2 is not None else ''}, {out3}")
 
+    signal.signal(signal.SIGINT, handler)  # agora Ctrl+C chama handler
+
+
     if show:
         plt.show(block=True)
+        #wait_for_enter_or_ctrl_c()
+
+        # espera até Enter ou Ctrl+C
+        """ try:
+            input("Pressione Enter para sair... ")
+        except KeyboardInterrupt:
+            pass """
 
 
 def main():
