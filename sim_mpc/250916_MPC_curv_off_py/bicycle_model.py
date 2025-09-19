@@ -181,13 +181,13 @@ def bicycle_model(
     alpha_r = cs.atan2(-v_y - vy0 + lr * yaw_rate, v_x + vx0) """
     
     # --- 1) Regularização de baixa velocidade para slip angles
-    v0 = 0.01  # [m/s] regularização (típico 0.3–1.0)
+    v0 = 0.5  # [m/s] regularização (típico 0.3–1.0)
     
-    """ v_eff = cs.sqrt(v_x*v_x + v0*v0)  # C¹, nunca zera
+    v_eff = cs.sqrt(v_x*v_x + v0*v0)  # C¹, nunca zera
     alpha_f = cs.atan2(-(v_y + lf*yaw_rate), v_eff) + delta
-    alpha_r = cs.atan2(-(v_y - lr*yaw_rate), v_eff)  """
-    alpha_f = cs.atan2(-v_y - (lf* yaw_rate),(v_x+v0)) + delta
-    alpha_r = cs.atan2(-v_y + (lr* yaw_rate),(v_x+v0))
+    alpha_r = cs.atan2(-(v_y - lr*yaw_rate), v_eff) 
+    """ alpha_f = cs.atan2(-v_y - (lf* yaw_rate),(v_x+v0)) + delta
+    alpha_r = cs.atan2(-v_y + (lr* yaw_rate),(v_x+v0)) """
 
     alpha_func = Function("alpha_func", [v_x, v_y, yaw_rate, delta], [alpha_f, alpha_r])
 
