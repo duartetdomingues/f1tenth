@@ -32,7 +32,7 @@ MPCNode::MPCNode() : Node("mpc_node"),
         use_pose_topic_ = true;
     }
 
-    // Publishers and Subscribers
+    // Publishers 
     control_vesc_pub_ = this->create_publisher<ackermann_msgs::msg::AckermannDriveStamped>("autonomous_control", 10);
     solved_time_pub_ = this->create_publisher<std_msgs::msg::Float64>("mpc/solved_time", 10);
     ref_path_pub_ = this->create_publisher<nav_msgs::msg::Path>("mpc/ref_path", 10);
@@ -47,6 +47,7 @@ MPCNode::MPCNode() : Node("mpc_node"),
     for (int i = 0; i < 8; i++)
         state_vector_pub_[i] = this->create_publisher<std_msgs::msg::Float64MultiArray>("mpc/predict_x" + std::to_string(i), 10);
 
+    // Subscribers
     odom_sub_ = this->create_subscription<nav_msgs::msg::Odometry>(
         odom_topic, 10, std::bind(&MPCNode::OdomCallback, this, std::placeholders::_1));
 
@@ -134,33 +135,60 @@ MPCNode::MPCNode() : Node("mpc_node"),
     ocp_nlp_solver_opts_set(nlp_config_, nlp_opts_, "print_level", &print_level);
 
     // Init the states
-    current_state_.s = 0;
+    /* current_state_.s = 0;
     current_state_.n = 0.1;
     current_state_.u = 0.1;
     current_state_.vx = 0.1;
     current_state_.vy = 0.01;
     current_state_.r = 0.1;
-    current_state_.delta = 0.0;
-    current_state_.T = 0.0;
+    
+    current_state_.T = 0.0; */
 
     n_x = 8; // Number of states
     n_u = 2; // Number of controls
 
-    Eigen::VectorXd x0(8);
-    x0 << current_state_.s, current_state_.n, current_state_.u, current_state_.vx,
-          current_state_.vy, current_state_.r, current_state_.delta, current_state_.T;
-    apply_warm_start(x0);
-
-    // Set up a timer to solve MPC at a fixed frequency
     timer_ = this->create_wall_timer(
-        std::chrono::milliseconds(static_cast<int>(1000 / frequency)),
-        std::bind(&MPCNode::solveMPC, this));
+        std::chrono::milliseconds(static_cast<int>(100)),
+        std::bind(&MPCNode::initMPC, this));
+  
 }
 
 MPCNode::~MPCNode()
 {
     delete kd_tree;
     mpc_model_acados_free(capsule);
+}
+
+void MPCNode::initMPC()
+{
+    current_state_.delta = 0.0;
+
+    if ((std::isnan(current_state_.s) || std::isnan(current_state_.n) || std::isnan(current_state_.u) ||
+            std::isnan(current_state_.vx) || std::isnan(current_state_.vy) || std::isnan(current_state_.r) ||
+            std::isnan(current_state_.delta) || std::isnan(current_state_.T)))
+    {
+        RCLCPP_WARN(this->get_logger(), "Waiting for valid initial state...");
+        RCLCPP_INFO(this->get_logger(), "Current state: s=%.3f, n=%.3f, u=%.3f, vx=%.3f, vy=%.3f, r=%.3f, delta=%.3f, T=%.3f",
+               current_state_.s, current_state_.n, current_state_.u, current_state_.vx,
+               current_state_.vy, current_state_.r, current_state_.delta, current_state_.T);
+    }
+    else
+    {
+        timer_->cancel();
+        
+        current_state_.vx = 0.1;
+        Eigen::VectorXd x0(8);
+        x0 << current_state_.s, current_state_.n, current_state_.u, current_state_.vx,
+            current_state_.vy, current_state_.r, current_state_.delta, current_state_.T;
+        apply_warm_start(x0);
+
+        // Set up a timer to solve MPC at a fixed frequency
+        timer_ = this->create_wall_timer(
+            std::chrono::milliseconds(static_cast<int>(1000 / frequency)),
+            std::bind(&MPCNode::solveMPC, this));
+    }
+
+
 }
 
 void MPCNode::solveMPC()
@@ -171,11 +199,11 @@ void MPCNode::solveMPC()
         return;
     }
 
-    if (std::isnan(current_state_.s) || std::isnan(current_state_.n) || reference_trajectory_.x.empty() || reference_trajectory_.y.empty())
+    /* if (std::isnan(current_state_.s) || std::isnan(current_state_.n) || reference_trajectory_.x.empty() || reference_trajectory_.y.empty())
     {
         RCLCPP_WARN(this->get_logger(), "State or reference trajectory is empty. Skipping MPC solve.");
         return;
-    }
+    } */
 
     // Get the reference trajectory to horizont
     // set_trajectory_step();
@@ -235,15 +263,18 @@ void MPCNode::solveMPC()
 
     if (status != 0)
     {
-        RCLCPP_ERROR(this->get_logger(), "ACADOS solver failed with status %d", status);
+        RCLCPP_ERROR(this->get_logger(), "\033[1;31mACADOS solver failed with status %d\033[0m", status);
         solved_time = -1.0;
-        state_output = {current_state_.delta, current_state_.T}; // Maintain current control if solver fails
+        state_output[6] = current_state_.delta;
+        state_output[7] = current_state_.T; // Maintain current control if solver fails
     }
     else
     {
-        RCLCPP_INFO(this->get_logger(), "ACADOS solver succeeded with status %d", status);
+        RCLCPP_INFO(this->get_logger(), "\033[1;32mACADOS solver succeeded with status %d\033[0m", status);
 
         ocp_nlp_out_get(nlp_config_, nlp_dims_, nlp_out_, 1, "x", state_output.data()); // Retrieve control output
+
+        RCLCPP_INFO(this->get_logger(), "Controls: delta=%.3f, T=%.3f", state_output[6], state_output[7]);
 
         ocp_nlp_get(nlp_solver_, "time_tot", &solved_time);
     }
@@ -525,6 +556,7 @@ void MPCNode::OdomCallback(const nav_msgs::msg::Odometry::SharedPtr msg)
 
     current_state_.vx = msg->twist.twist.linear.x;
     current_state_.vy = msg->twist.twist.linear.y;
+    current_state_.r = msg->twist.twist.angular.z;
 
     /* if (!use_pose_topic_)
     {
@@ -604,7 +636,6 @@ int main(int argc, char **argv)
 
     // Criação do nó
     auto mpc_node = std::make_shared<MPCNode>();
-
     rclcpp::spin(mpc_node);
     rclcpp::shutdown();
     return 0;
