@@ -47,7 +47,6 @@ public:
         double T;
     } State; // x = [s; n; µ; vx; vy; r; δ; T]
 
-
     typedef struct
     {
         std::vector<double> x;
@@ -60,10 +59,12 @@ public:
 private:
     void OdomCallback(const nav_msgs::msg::Odometry::SharedPtr msg);
     void PoseCallback(const geometry_msgs::msg::PoseStamped::SharedPtr msg);
-    void ProcessPose(const geometry_msgs::msg::Pose& msg);
+    void ProcessPose(const geometry_msgs::msg::Pose &msg);
     void VescServoCallback(const std_msgs::msg::Float64::SharedPtr msg);
     void VescStateCallback(const vesc_msgs::msg::VescStateStamped::SharedPtr msg);
     bool load_reference_trajectory_from_csv(const std::string &filename);
+    void apply_warm_start(const Eigen::VectorXd &x);
+    std::vector<Eigen::VectorXd> get_warm_start(const Eigen::VectorXd &x, double d_acc, double const_steer_vel);
     void publish_reference_trajectory();
     void solveMPC();
     void set_trajectory_step();
@@ -76,7 +77,7 @@ private:
     rclcpp::Publisher<std_msgs::msg::Float64MultiArray>::SharedPtr state_pub_;
     rclcpp::Publisher<std_msgs::msg::Float64MultiArray>::SharedPtr control_pub_;
 
-    std::array<rclcpp::Publisher<std_msgs::msg::Float64MultiArray>::SharedPtr, 5> state_vector_pub_;
+    std::array<rclcpp::Publisher<std_msgs::msg::Float64MultiArray>::SharedPtr, 8> state_vector_pub_;
     std::array<rclcpp::Publisher<std_msgs::msg::Float64MultiArray>::SharedPtr, 2> control_vector_pub_;
 
     rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odom_sub_;
@@ -104,6 +105,9 @@ private:
 
     State current_state_;
     ReferenceTrajectory reference_trajectory_;
+
+    int n_x ; // Number of states
+    int n_u; // Number of controls
 
     KDTreeWithCloud *kd_tree;
 

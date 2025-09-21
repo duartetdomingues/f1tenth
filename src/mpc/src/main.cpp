@@ -121,7 +121,7 @@ MPCNode::MPCNode() : Node("mpc_node"),
     double safety_margin = 0.1; // 10 cm
 
     // Parameter vector
-    double p[7] = {weight_ds, weight_beta, weight_dalpha, weight_dthrottle,1.0 ,1.0, safety_margin};
+    double p[7] = {weight_ds, weight_beta, weight_dalpha, weight_dthrottle, 1.0, 1.0, safety_margin};
     int idxs[7] = {0, 1, 2, 3, 4, 5, 6}; // indices for the parameters
 
     for (int i = 0; i < MPC_MODEL_N; i++)
@@ -134,14 +134,22 @@ MPCNode::MPCNode() : Node("mpc_node"),
     ocp_nlp_solver_opts_set(nlp_config_, nlp_opts_, "print_level", &print_level);
 
     // Init the states
-    current_state_.s = 0.1;
+    current_state_.s = 0;
     current_state_.n = 0.1;
     current_state_.u = 0.1;
     current_state_.vx = 0.1;
     current_state_.vy = 0.01;
-    current_state_.r = 0.01;
-    current_state_.delta = 0.01;
-    current_state_.T = 0.01;
+    current_state_.r = 0.1;
+    current_state_.delta = 0.0;
+    current_state_.T = 0.0;
+
+    n_x = 8; // Number of states
+    n_u = 2; // Number of controls
+
+    Eigen::VectorXd x0(8);
+    x0 << current_state_.s, current_state_.n, current_state_.u, current_state_.vx,
+          current_state_.vy, current_state_.r, current_state_.delta, current_state_.T;
+    apply_warm_start(x0);
 
     // Set up a timer to solve MPC at a fixed frequency
     timer_ = this->create_wall_timer(
@@ -200,6 +208,10 @@ void MPCNode::solveMPC()
                             current_state_vector_[6],
                             current_state_vector_[7]};
     state_pub_->publish(state_array_msg);
+
+    RCLCPP_INFO(this->get_logger(), "Current state: s=%.3f, n=%.3f, u=%.3f, vx=%.3f, vy=%.3f, r=%.3f, delta=%.3f, T=%.3f",
+                current_state_.s, current_state_.n, current_state_.u, current_state_.vx,
+                current_state_.vy, current_state_.r, current_state_.delta, current_state_.T);
 
     // Solve the MPC problem
     // int status = ocp_nlp_solve(nlp_solver_, nlp_in_, nlp_out_);
@@ -290,7 +302,7 @@ void MPCNode::solveMPC()
     {
         state_vector_msgs[i].data = predict_vector_x[i];
         state_vector_pub_[i]->publish(state_vector_msgs[i]);
-    } 
+    }
 
     /*  // Publish simulation trajectory
      nav_msgs::msg::Path simulation_path;
@@ -308,9 +320,9 @@ void MPCNode::solveMPC()
          simulation_path.poses.push_back(pose);
      }
      simulation_trajectory_pub_->publish(simulation_path); */
-     
+
     // RCLCPP_INFO(this->get_logger(), "Current steering angle: %f", current_state_.steering_angle);
-} 
+}
 
 /* void MPCNode::set_trajectory_step()
 {
@@ -387,6 +399,57 @@ void MPCNode::solveMPC()
         std::cos(psi_ref[9])};
     ocp_nlp_cost_model_set(nlp_config_, nlp_dims_, nlp_in_, MPC_MODEL_N, "y_ref", yref_N.data());
 } */
+
+void MPCNode::apply_warm_start(const Eigen::VectorXd &x)
+{
+    // get_warm_start devolve std::vector<Eigen::VectorXd>
+    auto ws = this->get_warm_start(x, /*const_steer_vel=*/0.0, /*d_acc=*/0.05);
+
+    for (int i = 0; i <= MPC_MODEL_N; i++)
+    {
+        // Parte de estado (primeiros n_x elementos)
+        Eigen::VectorXd x_part = ws[i].head(this->n_x);
+        ocp_nlp_out_set(nlp_config_, nlp_dims_, nlp_out_, nlp_in_, i, "x", x_part.data());
+
+        // Parte de controle (resto do vetor), apenas se i < N
+        if (i < MPC_MODEL_N)
+        {
+            Eigen::VectorXd u_part = ws[i].segment(this->n_x, ws[i].size() - this->n_x);
+            ocp_nlp_out_set(nlp_config_, nlp_dims_, nlp_out_, nlp_in_, i, "u", u_part.data());
+        }
+    }
+}
+
+std::vector<Eigen::VectorXd> MPCNode::get_warm_start(
+    const Eigen::VectorXd &x,
+    double d_acc,
+    double const_steer_vel)
+{
+    double v_x_min_ws = 0.5; // [m/s] mínimo para evitar singularidades
+
+    int horizon = MPC_MODEL_N + 1;
+    int state_dim = 10; // TODO: hardcoded state space dimension
+
+    std::vector<Eigen::VectorXd> warm_start(horizon, Eigen::VectorXd::Zero(state_dim));
+
+    // inicialização (i = 0)
+    warm_start[0] << x(0), x(1), x(2), x(3), x(4), x(5), x(6), x(7),
+        const_steer_vel, d_acc;
+
+    // Propagação simples
+    for (int i = 1; i < horizon; i++)
+    {
+        // Eigen::VectorXd xdot = this->_dynamics_of_car(0.0, warm_start[i - 1]);
+
+        // Integração de Euler explícito (comentado no Python)
+        // warm_start[i] = warm_start[i - 1] + xdot / this->stmpc.MPC_freq;
+
+        // No código atual apenas copia o anterior
+        warm_start[i] = warm_start[i - 1];
+    }
+
+    return warm_start;
+}
 
 bool MPCNode::load_reference_trajectory_from_csv(const std::string &filename)
 {
