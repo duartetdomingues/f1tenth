@@ -310,6 +310,12 @@ def generate_launch_description():
             ]
         )
     )  """
+    
+    imu_base_link_node = Node(
+        package='imu_base_link',
+        executable='imu_base_link',
+        name='imu_base_link',
+    )
 
     # finalize
     #tfs
@@ -336,7 +342,7 @@ def generate_launch_description():
     #ld.add_action(zed_sdk_node)
 
     ld.add_action(robot_localization_node)
-    ld.add_action(path_robot_localization_node)
+    #ld.add_action(path_robot_localization_node)
 
 
     ld.add_action(xsens_node)
@@ -344,6 +350,8 @@ def generate_launch_description():
     #ld.add_action(slam_node_map)
     #ld.add_action(slam_node_loc)
     #ld.add_action(save_map)
+    
+    ld.add_action(imu_base_link_node)
 
     
 

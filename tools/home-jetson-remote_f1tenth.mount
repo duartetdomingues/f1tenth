@@ -1,0 +1,14 @@
+[Unit]
+Description=Montar f1tenth via sshfs
+After=network-online.target
+Wants=network-online.target
+
+[Mount]
+What=desktop@192.168.27.200:/home/desktop/f1tenth .
+Where=/home/jetson/remote_f1tenth
+Type=fuse.sshfs
+Options=_netdev,allow_other,reconnect,StrictHostKeyChecking=no
+TimeoutSec=30
+
+[Install]
+WantedBy=multi-user.target

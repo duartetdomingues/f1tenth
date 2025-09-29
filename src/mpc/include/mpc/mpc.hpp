@@ -37,14 +37,14 @@ public:
 
     typedef struct
     {
-        double s;
-        double n;
-        double u;
-        double vx;
-        double vy;
-        double r;
-        double delta;
-        double T;
+        double s   = NAN;
+        double n   = NAN;
+        double u   = NAN;
+        double vx  = NAN;
+        double vy  = NAN;
+        double r   = NAN;
+        double delta = NAN;
+        double T   = NAN;
     } State; // x = [s; n; µ; vx; vy; r; δ; T]
 
     typedef struct
@@ -66,6 +66,7 @@ private:
     void apply_warm_start(const Eigen::VectorXd &x);
     std::vector<Eigen::VectorXd> get_warm_start(const Eigen::VectorXd &x, double d_acc, double const_steer_vel);
     void publish_reference_trajectory();
+    void initMPC();
     void solveMPC();
     void set_trajectory_step();
 
