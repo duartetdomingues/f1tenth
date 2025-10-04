@@ -11,10 +11,10 @@ from scipy.spatial import cKDTree
 ##########################################
 # CONFIGURAÇÕES
 ##########################################
-map_files = "../maps/test_map/map_output"
+map_files = "maps/map_2025-09-21_15-05-08/map_output"
 map_path = map_files + ".pgm"
 yaml_path = map_files + ".yaml"
-direction = "clockwise"  # ou "clockwise"
+direction = "counter-clockwise"  # ou "clockwise" ou "counter-clockwise"
 amostragem = 0.1  # espaçamento em metros
 
 ##########################################
@@ -184,7 +184,7 @@ def build_centerline(contour1, contour2, amostragem, resolution, direction="coun
 
 def smooth_centerline(centerline_px, origin, resolution, amostragem):
     
-    centerline_px = gaussian_filter1d(centerline_px, sigma=15, axis=0, mode="wrap")
+    centerline_px = gaussian_filter1d(centerline_px, sigma=10, axis=0, mode="wrap")
     
     x = origin[0] + centerline_px[:,0]*resolution
     y = origin[1] + centerline_px[:,1]*resolution
@@ -317,7 +317,16 @@ plt.legend(); plt.axis("equal"); plt.title("Contornos extraídos")
 plt.show()
 
 centerline_px = build_centerline(contour1, contour2, amostragem, resolution, direction)
+#s, x_s, y_s, kappa, centerline_px = smooth_centerline(centerline_px, origin, resolution, amostragem)
+
+# Rebuild centerline so that it starts at the map origin (in pixels)
+origin_px = np.array([-origin[0]/resolution, -origin[1]/resolution])
+dists_to_origin = np.linalg.norm(centerline_px - origin_px, axis=1)
+start_idx = np.argmin(dists_to_origin)
+centerline_px = np.roll(centerline_px, -start_idx, axis=0)
 s, x_s, y_s, kappa, centerline_px = smooth_centerline(centerline_px, origin, resolution, amostragem)
+
+
 
 plt.figure()
 plt.imshow(binary, cmap="gray", origin="lower")
