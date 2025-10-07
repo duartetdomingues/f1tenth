@@ -27,7 +27,8 @@ from PyQt5.QtCore import Qt   # <-- importa aqui
 matplotlib.use("Qt5Agg")
 matplotlib.rcParams['figure.raise_window'] = False
 import matplotlib.pyplot as plt
-from aux_func import frenet_to_global, handler
+from aux_func import frenet_to_global, handler_plots
+from matplotlib.collections import LineCollection
 
 def position_window(fig, offset_x=100, offset_y=100):
 
@@ -119,6 +120,12 @@ def init_sim_plot(tr, d_left, d_right, x0):
     ax.set_title("Track with Boundaries and Vehicle Position")
     ax.legend()
     ax.grid()
+    v_x = 0
+    points = np.array([x, y]).T.reshape(-1, 1, 2)
+    segments = np.concatenate([points[:-1], points[1:]], axis=1)
+    lc = LineCollection(segments, cmap='viridis', norm=plt.Normalize(1, 12))
+    cbar = plt.colorbar(lc, ax=ax, pad=0.02)
+    cbar.set_label("Velocity $v_x$ [m/s]")
     
     plt.ion()
     position_window(fig)
@@ -148,7 +155,15 @@ def update_sim_plot(fig, tr, d_left, d_right, x_horizon, status, n_step):
              label="Right Boundary", color="green", linestyle="--")
     ax.quiver(x[1], y[1], np.cos(psi[1]), np.sin(psi[1]),
               angles='xy', scale_units='xy', scale=1, color='black', label="Vehicle", zorder=2)
-    ax.plot(x, y, 'o-', color='blue', label="Predicted Path", zorder=3)
+    # Color the predicted path by velocity (v_x)
+    v_x = x_horizon[:, 3]
+    points = np.array([x, y]).T.reshape(-1, 1, 2)
+    segments = np.concatenate([points[:-1], points[1:]], axis=1)
+    lc = LineCollection(segments, cmap='viridis', norm=plt.Normalize(1, 12))
+    lc.set_array(v_x)
+    lc.set_linewidth(3)
+    ax.add_collection(lc)
+    
 
     # Add a light indicator for MPC status
     light_color = "green" if status == 0 else "red"
@@ -247,19 +262,15 @@ def plot_states(mpc_self,x_hist: np.ndarray, u_hist: np.ndarray, dt: float,
     
     fig3.tight_layout()
 
-    fig5, ax5 = plt.subplots(6, 1, sharex=True, figsize=(10, 10))
-    ax5[0].plot(t, mpc_self.Fz_f, 'o-', label="Fz_f [N]")
-    ax5[0].set_ylabel("Fz_f [N]")
-    ax5[1].plot(t, mpc_self.Fz_r, 'o-', label="Fz_r [N]")
-    ax5[1].set_ylabel("Fz_r [N]")
-    ax5[2].plot(t, mpc_self.Fx_f, 'o-', label="Fx_f [N]")
-    ax5[2].set_ylabel("Fx_f [N]")
-    ax5[3].plot(t, mpc_self.Fx_r, 'o-', label="Fx_r [N]")
-    ax5[3].set_ylabel("Fx_r [N]")
-    ax5[4].plot(t, mpc_self.Fy_f, 'o-', label="Fy_f [N]")
-    ax5[4].set_ylabel("Fy_f [N]")
-    ax5[5].plot(t, mpc_self.Fy_r, 'o-', label="Fy_r [N]")
-    ax5[5].set_ylabel("Fy_r [N]")
+    fig5, ax5 = plt.subplots(4, 1, sharex=True, figsize=(10, 10))
+    ax5[0].plot(t, mpc_self.Fx_f, 'o-', label="Fx_f [N]")
+    ax5[0].set_ylabel("Fx_f [N]")
+    ax5[1].plot(t, mpc_self.Fx_r, 'o-', label="Fx_r [N]")
+    ax5[1].set_ylabel("Fx_r [N]")
+    ax5[2].plot(t, mpc_self.Fy_f, 'o-', label="Fy_f [N]")
+    ax5[2].set_ylabel("Fy_f [N]")
+    ax5[3].plot(t, mpc_self.Fy_r, 'o-', label="Fy_r [N]")
+    ax5[3].set_ylabel("Fy_r [N]")
     ax5[-1].set_xlabel("t [s]")
     for ax in ax5:
         ax.legend()
@@ -273,6 +284,34 @@ def plot_states(mpc_self,x_hist: np.ndarray, u_hist: np.ndarray, dt: float,
     ax6.legend()
     ax6.grid()
     plt.tight_layout()
+    
+    
+    
+    fig, ax = plt.subplots(figsize=(10, 6))
+    ax.plot(mpc_self.tr["x"], mpc_self.tr["y"], label="Centerline", color="yellow", zorder=1)
+    ax.plot(mpc_self.tr["x"] + mpc_self.d_left * np.cos(mpc_self.tr["psi"] + np.pi / 2),
+            mpc_self.tr["y"] + mpc_self.d_left * np.sin(mpc_self.tr["psi"] + np.pi / 2),
+            label="Left Boundary", color="red", linestyle="--")
+    ax.plot(mpc_self.tr["x"] - mpc_self.d_right * np.cos(mpc_self.tr["psi"] + np.pi / 2),
+            mpc_self.tr["y"] - mpc_self.d_right * np.sin(mpc_self.tr["psi"] + np.pi / 2),
+            label="Right Boundary", color="green", linestyle="--")
+    ax.axis("equal")
+    ax.set_xlabel("X [m]")
+    ax.set_ylabel("Y [m]")
+    ax.set_title("Track with Boundaries and Vehicle Position")
+    ax.legend()
+    ax.grid()
+    # Color the predicted path by velocity (v_x)
+    [x, y, psi] = frenet_to_global(x_hist[:,0], x_hist[:,1], x_hist[:,2], mpc_self.tr)
+    v_x = x_hist[:, 3]
+    points = np.array([x, y]).T.reshape(-1, 1, 2)
+    segments = np.concatenate([points[:-1], points[1:]], axis=1)
+    lc = LineCollection(segments, cmap='viridis', norm=plt.Normalize(1, 12))
+    lc.set_array(v_x)
+    lc.set_linewidth(3)
+    ax.add_collection(lc)
+    cbar = plt.colorbar(lc, ax=ax, pad=0.02)
+    cbar.set_label("Velocity $v_x$ [m/s]")
 
     # Save/show
     if save_prefix is not None:
@@ -285,7 +324,7 @@ def plot_states(mpc_self,x_hist: np.ndarray, u_hist: np.ndarray, dt: float,
         fig3.savefig(out3, dpi=150)
         print(f"Saved: {out1}{', ' + out2 if fig2 is not None else ''}, {out3}")
 
-    signal.signal(signal.SIGINT, handler)  # agora Ctrl+C chama handler
+    signal.signal(signal.SIGINT, handler_plots)  # agora Ctrl+C chama handler
 
 
     if show:

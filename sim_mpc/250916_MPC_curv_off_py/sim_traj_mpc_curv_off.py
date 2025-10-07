@@ -34,12 +34,13 @@ import numpy as np
 import matplotlib.pyplot as plt
 import casadi as cs
 from utils.indicies import StateIndex
-from aux_func import handler
+from aux_func import handler_plots
 
 # ---- dependências do teu projeto (já existentes) ----
 from acados_settings import acados_settings, get_parameters
 from load_params import load_params_file, load_track_csv, make_configs
 from aux_func import frenet_to_global
+import select
 from mpc_plots import (
     plot_states,  # pós-sim
     plot_track_and_boundaries,  # figura estática extra (opcional)
@@ -146,12 +147,12 @@ class MPCSim:
 
     # -------------- warm start --------------
 
-    def apply_warm_start(self, pose_frenet: np.ndarray) -> None:
+    def apply_warm_start(self, x: np.ndarray) -> None:
         """
         Usa o helper do teu projeto (get_warm_start) que devolve por passo [x|u] concatenado.
         """
         ws = self.get_warm_start(
-            pose_frenet=pose_frenet, const_steer_vel=0.0 , const_acc=0.05,
+            x=x, const_steer_vel=0.0 , d_acc=0.05,
         )
         for i in range(self.stmpc.N + 1):
             self.solver.set(i, "x", ws[i][: self.model.n_x])
@@ -161,7 +162,7 @@ class MPCSim:
         # self.x = ws[0][:8] # atualiza só os 3 primeiros estados
 
     def get_warm_start(
-        self, pose_frenet: np.ndarray, const_acc: float, const_steer_vel: float
+        self, x: np.ndarray, d_acc: float, const_steer_vel: float
     ) -> np.array:
         """
         Returns a warm start trajectory for the MPC. This is done by propagating the current state with a constant acceleration and steering angle.
@@ -177,23 +178,24 @@ class MPCSim:
         )  # TODO: hardcoded state space dimension
         warm_start[0] = np.array(
             [
-                pose_frenet[0],
-                pose_frenet[1],
-                pose_frenet[2],
-                pose_frenet[3],
-                pose_frenet[4],
-                pose_frenet[5],
-                pose_frenet[6],
-                const_acc,
+                x[0],
+                x[1],
+                x[2],
+                x[3],
+                x[4],
+                x[5],
+                x[6],
+                x[7],
                 const_steer_vel,
-                0,
+                d_acc,
             ]
         )  # TODO setting the velocity to current actual velocity might remove slowing down
         for i in range(1, self.stmpc.N + 1):
             xdot = self._dynamics_of_car(0, warm_start[i - 1])
-            warm_start[i] = (
+            """  warm_start[i] = (
                 warm_start[i - 1] + np.array(xdot) / self.stmpc.MPC_freq
-            )  # ugly euler integration
+            ) """  # ugly euler integration
+            warm_start[i]=warm_start[i - 1]
         return warm_start
 
     # -------------- um passo de MPC --------------
@@ -286,9 +288,18 @@ class MPCSim:
         status_hist = []
         solve_ms = []
 
-        x_hist.append(self.x.copy())
+        #x_hist.append(self.x.copy())
 
         for k in range(n_steps):
+            
+            # Check for user input without blocking
+            print("Press 'p' to pause/break simulation, or Enter to continue.")
+            if sys.stdin in select.select([sys.stdin], [], [], 0)[0]:
+                user_input = sys.stdin.readline().strip().lower()
+                if user_input == "p":
+                    print("Simulation paused by user.")
+                    break
+            
             status, xN, uN, ms = self._solve_one_step()
             status_hist.append(status)
             solve_ms.append(ms)
@@ -372,7 +383,7 @@ class MPCSim:
             )
 
             if status != 0:
-                signal.signal(signal.SIGINT, handler)  # agora Ctrl+C chama handler
+                signal.signal(signal.SIGINT, handler_plots)  # agora Ctrl+C chama handler
                 wait = input("Press Enter to continue or esc to exit...")
                 if wait.lower() in ["esc", "exit", "quit", "q"]:
                     sys.exit(1)
@@ -387,6 +398,7 @@ class MPCSim:
                 self.fig = update_sim_plot(
                     self.fig, self.tr, self.d_left, self.d_right, np.array(xN), status, k
                 )
+                
 
             # logging e avanço
             x_hist.append(x_next)
@@ -412,11 +424,13 @@ class MPCSim:
 
 def main():
 
-    traj_default = "./traj/centerline_0.10_test_map_v2.csv"
+    #traj_default = "./traj/centerline_0.10_test_map_v2.csv"
+    traj_default ='traj/centerline_map_2025-09-09_10-52-29.csv'
+    traj_default ='traj/centerline_map_2025-09-21_15-05-08.csv'
     #traj_default = Path("./traj/track_data.csv")
 
     # Exemplo: [s, n, mu, vx, vy, r, delta, throttle] 27
-    x_init = np.array([4, 0.01, 0.01, 0.1, 0.01, 0.01, 0.01, 0.01], dtype=float)
+    x_init = np.array([0.1, 0.1, 0.1, 0.1, 0.01, 0.1, 0.0, 0.0], dtype=float)
 
     ap = argparse.ArgumentParser(
         description="Closed-loop MPC sim (acados) — class-based"
@@ -478,12 +492,11 @@ def main():
         f"Done. Steps: {res.u_hist.shape[0]}, avg solve time: {res.solve_ms.mean():.2f} ms at {res.freq:.1f} Hz"
     )
 
-    try:
-        # pós-sim (figuras bloqueantes, só no fim)
-        print("Plotting states & inputs...")
-        plot_states(res.mpc_self, res.x_hist, res.u_hist, res.dt, save_prefix=None, show=True)
-    except Exception as e:
-        print("plotting failed:", e)
+
+    # pós-sim (figuras bloqueantes, só no fim)
+    print("Plotting states & inputs...")
+    plot_states(res.mpc_self, res.x_hist, res.u_hist, res.dt, save_prefix=None, show=True)
+
 
 
 if __name__ == "__main__":

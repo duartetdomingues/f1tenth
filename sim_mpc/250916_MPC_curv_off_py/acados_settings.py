@@ -33,10 +33,11 @@
 # author: Daniel Kloeser
 
 import numpy as np
-from acados_template import AcadosModel, AcadosOcp, AcadosOcpSolver
+from acados_template import AcadosModel, AcadosOcp, AcadosOcpSolver, ocp_get_default_cmake_builder
 from bicycle_model import bicycle_model
 from typing import Tuple
 from utils.indicies import StateIndex
+from pathlib import Path
 
 
 def acados_settings(
@@ -73,7 +74,7 @@ def acados_settings(
     ny_e = nx
     
     #State and input constraint
-    input_constraint = True
+    input_constraint = False
     vx_max_constraint = True
     
     # Nonlinear constraint
@@ -277,10 +278,22 @@ def acados_settings(
     ocp.solver_options.print_level = 0
     ocp.solver_options.qp_solver_warm_start = 1
     
-    json_file = "./sim_mpc/250916_MPC_curv_off_py/acados_ocp.json"
+    
+    script_dir = Path(__file__).resolve().parent
+
+    json_file = str(script_dir / "acados_ocp.json")
+    
+    print("JSON file generated in ", json_file)
+
+    cmake = ocp_get_default_cmake_builder()
+    
+    ocp.code_export_directory = str(script_dir / "c_generated_code")
+    
+    print("CMakeLists.txt generated in ", ocp.code_export_directory)
+
 
     # create solver
-    acados_solver = AcadosOcpSolver(ocp, json_file=json_file)
+    acados_solver = AcadosOcpSolver(ocp, json_file=json_file, cmake_builder=cmake, generate=True, build=True)
 
     return constraint, model, acados_solver, params
 

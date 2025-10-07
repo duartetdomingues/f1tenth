@@ -1,5 +1,8 @@
 import numpy as np
 from typing import Dict, Tuple
+import matplotlib.pyplot as plt
+import signal
+import sys
 
 def _periodic_interp(s_base: np.ndarray, y_base: np.ndarray, s_query: np.ndarray) -> np.ndarray:
     """Periodic linear interpolation over s. Wrap s_query into [s0, s_end)."""
@@ -34,7 +37,9 @@ def frenet_to_global(s_vals: np.ndarray, n_vals: np.ndarray, u_rel: np.ndarray, 
     psi = psi_c + u_rel
     return X, Y, psi
 
-def handler(sig, frame):
+def handler_plots(sig, frame):
     plt.close("all")
     print("\nInterrompido com Ctrl+C")
     sys.exit(0)
+    
+    

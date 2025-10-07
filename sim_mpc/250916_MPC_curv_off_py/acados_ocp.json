@@ -1,7 +1,7 @@
 {
-    "acados_include_path": "/home/duarte/acados/include",
-    "acados_lib_path": "/home/duarte/acados/lib",
-    "code_export_directory": "/home/duarte/Desktop/f1tenth/c_generated_code",
+    "acados_include_path": "/home/desktop/acados/include",
+    "acados_lib_path": "/home/desktop/acados/lib",
+    "code_export_directory": "/home/desktop/f1tenth/sim_mpc/250916_MPC_curv_off_py/c_generated_code",
     "constraints": {
         "C": [],
         "C_e": [],
@@ -10,18 +10,7 @@
         "constr_type_0": "BGH",
         "constr_type_e": "BGH",
         "has_x0": true,
-        "idxbu": [
-            0,
-            1
-        ],
-        "idxbu_0": [
-            0,
-            1
-        ],
-        "idxbu_e": [
-            0,
-            1
-        ],
+        "idxbu": [],
         "idxbx": [
             3,
             6,
@@ -52,38 +41,21 @@
             6,
             7
         ],
+        "idxs_rev": [],
+        "idxs_rev_0": [],
+        "idxs_rev_e": [],
         "idxsbu": [],
         "idxsbx": [],
         "idxsbx_e": [],
         "idxsg": [],
         "idxsg_e": [],
-        "idxsh": [
-            0,
-            1
-        ],
-        "idxsh_0": [
-            0,
-            1
-        ],
-        "idxsh_e": [
-            0,
-            1
-        ],
+        "idxsh": [],
+        "idxsh_0": [],
+        "idxsh_e": [],
         "idxsphi": [],
         "idxsphi_0": [],
         "idxsphi_e": [],
-        "lbu": [
-            -3.2,
-            -2.0
-        ],
-        "lbu_0": [
-            -3.2,
-            -2.0
-        ],
-        "lbu_e": [
-            -3.2,
-            -2.0
-        ],
+        "lbu": [],
         "lbx": [
             0.0,
             -0.4,
@@ -121,42 +93,25 @@
         "lphi": [],
         "lphi_0": [],
         "lphi_e": [],
+        "ls": [],
+        "ls_0": [],
+        "ls_e": [],
         "lsbu": [],
         "lsbx": [],
         "lsbx_e": [],
         "lsg": [],
         "lsg_e": [],
-        "lsh": [
-            0.0,
-            0.0
-        ],
-        "lsh_0": [
-            0.0,
-            0.0
-        ],
-        "lsh_e": [
-            0.0,
-            0.0
-        ],
+        "lsh": [],
+        "lsh_0": [],
+        "lsh_e": [],
         "lsphi": [],
         "lsphi_0": [],
         "lsphi_e": [],
-        "ubu": [
-            3.2,
-            2.0
-        ],
-        "ubu_0": [
-            3.2,
-            2.0
-        ],
-        "ubu_e": [
-            3.2,
-            2.0
-        ],
+        "ubu": [],
         "ubx": [
-            12.0,
+            2.0,
             0.4,
-            0.2
+            0.15
         ],
         "ubx_0": [
             0.0,
@@ -169,9 +124,9 @@
             0.0
         ],
         "ubx_e": [
-            12.0,
+            2.0,
             0.4,
-            0.2
+            0.15
         ],
         "ug": [],
         "ug_e": [],
@@ -190,23 +145,17 @@
         "uphi": [],
         "uphi_0": [],
         "uphi_e": [],
+        "us": [],
+        "us_0": [],
+        "us_e": [],
         "usbu": [],
         "usbx": [],
         "usbx_e": [],
         "usg": [],
         "usg_e": [],
-        "ush": [
-            0.0,
-            0.0
-        ],
-        "ush_0": [
-            0.0,
-            0.0
-        ],
-        "ush_e": [
-            0.0,
-            0.0
-        ],
+        "ush": [],
+        "ush_0": [],
+        "ush_e": [],
         "usphi": [],
         "usphi_0": [],
         "usphi_e": []
@@ -222,30 +171,12 @@
         "W": [],
         "W_0": [],
         "W_e": [],
-        "Zl": [
-            1000.0,
-            1000.0
-        ],
-        "Zl_0": [
-            1000.0,
-            1000.0
-        ],
-        "Zl_e": [
-            1000.0,
-            1000.0
-        ],
-        "Zu": [
-            1000.0,
-            1000.0
-        ],
-        "Zu_0": [
-            1000.0,
-            1000.0
-        ],
-        "Zu_e": [
-            1000.0,
-            1000.0
-        ],
+        "Zl": [],
+        "Zl_0": [],
+        "Zl_e": [],
+        "Zu": [],
+        "Zu_0": [],
+        "Zu_e": [],
         "cost_ext_fun_type": "casadi",
         "cost_ext_fun_type_0": "casadi",
         "cost_ext_fun_type_e": "casadi",
@@ -261,39 +192,21 @@
         "yref": [],
         "yref_0": [],
         "yref_e": [],
-        "zl": [
-            1000.0,
-            1000.0
-        ],
-        "zl_0": [
-            1000.0,
-            1000.0
-        ],
-        "zl_e": [
-            1000.0,
-            1000.0
-        ],
-        "zu": [
-            1000.0,
-            1000.0
-        ],
-        "zu_0": [
-            1000.0,
-            1000.0
-        ],
-        "zu_e": [
-            1000.0,
-            1000.0
-        ]
+        "zl": [],
+        "zl_0": [],
+        "zl_e": [],
+        "zu": [],
+        "zu_0": [],
+        "zu_e": []
     },
     "cython_include_dirs": [
-        "/home/duarte/.local/lib/python3.11/site-packages/numpy/core/include",
-        "/home/duarte/.pyenv/versions/3.11.6/include/python3.11"
+        "/home/desktop/.local/lib/python3.10/site-packages/numpy/core/include",
+        "/usr/include/python3.10"
     ],
     "dims": {
         "N": 10,
         "n_global_data": 0,
-        "nbu": 2,
+        "nbu": 0,
         "nbx": 3,
         "nbx_0": 8,
         "nbx_e": 3,
@@ -311,17 +224,17 @@
         "nr": 0,
         "nr_0": 0,
         "nr_e": 0,
-        "ns": 2,
-        "ns_0": 2,
-        "ns_e": 2,
+        "ns": 0,
+        "ns_0": 0,
+        "ns_e": 0,
         "nsbu": 0,
         "nsbx": 0,
         "nsbx_e": 0,
         "nsg": 0,
         "nsg_e": 0,
-        "nsh": 2,
-        "nsh_0": 2,
-        "nsh_e": 2,
+        "nsh": 0,
+        "nsh_0": 0,
+        "nsh_e": 0,
         "nsphi": 0,
         "nsphi_0": 0,
         "nsphi_e": 0,
@@ -334,36 +247,36 @@
         "nz": 0
     },
     "external_function_files_model": [
-        "curv_model_model/curv_model_expl_ode_fun.c",
-        "curv_model_model/curv_model_expl_vde_forw.c",
-        "curv_model_model/curv_model_expl_vde_adj.c",
-        "curv_model_model/curv_model_expl_ode_hess.c"
+        "mpc_model_model/mpc_model_expl_ode_fun.c",
+        "mpc_model_model/mpc_model_expl_vde_forw.c",
+        "mpc_model_model/mpc_model_expl_vde_adj.c",
+        "mpc_model_model/mpc_model_expl_ode_hess.c"
     ],
     "external_function_files_ocp": [
-        "curv_model_constraints/curv_model_constr_h_0_fun_jac_uxt_zt.c",
-        "curv_model_constraints/curv_model_constr_h_0_fun_jac_uxt_zt_hess.c",
-        "curv_model_constraints/curv_model_constr_h_0_fun.c",
-        "curv_model_constraints/curv_model_constr_h_fun_jac_uxt_zt.c",
-        "curv_model_constraints/curv_model_constr_h_fun_jac_uxt_zt_hess.c",
-        "curv_model_constraints/curv_model_constr_h_fun.c",
-        "curv_model_constraints/curv_model_constr_h_e_fun_jac_uxt_zt.c",
-        "curv_model_constraints/curv_model_constr_h_e_fun_jac_uxt_zt_hess.c",
-        "curv_model_constraints/curv_model_constr_h_e_fun.c",
-        "curv_model_cost/curv_model_cost_ext_cost_0_fun.c",
-        "curv_model_cost/curv_model_cost_ext_cost_0_fun_jac_hess.c",
-        "curv_model_cost/curv_model_cost_ext_cost_0_fun_jac.c",
-        "curv_model_cost/curv_model_cost_ext_cost_fun.c",
-        "curv_model_cost/curv_model_cost_ext_cost_fun_jac_hess.c",
-        "curv_model_cost/curv_model_cost_ext_cost_fun_jac.c",
-        "curv_model_cost/curv_model_cost_ext_cost_e_fun.c",
-        "curv_model_cost/curv_model_cost_ext_cost_e_fun_jac_hess.c",
-        "curv_model_cost/curv_model_cost_ext_cost_e_fun_jac.c"
+        "mpc_model_constraints/mpc_model_constr_h_0_fun_jac_uxt_zt.c",
+        "mpc_model_constraints/mpc_model_constr_h_0_fun_jac_uxt_zt_hess.c",
+        "mpc_model_constraints/mpc_model_constr_h_0_fun.c",
+        "mpc_model_constraints/mpc_model_constr_h_fun_jac_uxt_zt.c",
+        "mpc_model_constraints/mpc_model_constr_h_fun_jac_uxt_zt_hess.c",
+        "mpc_model_constraints/mpc_model_constr_h_fun.c",
+        "mpc_model_constraints/mpc_model_constr_h_e_fun_jac_uxt_zt.c",
+        "mpc_model_constraints/mpc_model_constr_h_e_fun_jac_uxt_zt_hess.c",
+        "mpc_model_constraints/mpc_model_constr_h_e_fun.c",
+        "mpc_model_cost/mpc_model_cost_ext_cost_0_fun.c",
+        "mpc_model_cost/mpc_model_cost_ext_cost_0_fun_jac_hess.c",
+        "mpc_model_cost/mpc_model_cost_ext_cost_0_fun_jac.c",
+        "mpc_model_cost/mpc_model_cost_ext_cost_fun.c",
+        "mpc_model_cost/mpc_model_cost_ext_cost_fun_jac_hess.c",
+        "mpc_model_cost/mpc_model_cost_ext_cost_fun_jac.c",
+        "mpc_model_cost/mpc_model_cost_ext_cost_e_fun.c",
+        "mpc_model_cost/mpc_model_cost_ext_cost_e_fun_jac_hess.c",
+        "mpc_model_cost/mpc_model_cost_ext_cost_e_fun_jac.c"
     ],
-    "json_file": "./sim_mpc/250916_MPC_curv_off_py/acados_ocp.json",
+    "json_file": "/home/desktop/f1tenth/sim_mpc/250916_MPC_curv_off_py/acados_ocp.json",
     "model": {
-        "con_h_expr": "@1=fmod(s,76.4808), vertcat(((n+right_bound_s(@1){0})-safety_margin), ((n-left_bound_s(@1){0})+safety_margin))",
-        "con_h_expr_0": "@1=fmod(s,76.4808), vertcat(((n+right_bound_s(@1){0})-safety_margin), ((n-left_bound_s(@1){0})+safety_margin))",
-        "con_h_expr_e": "@1=fmod(s,76.4808), vertcat(((n+right_bound_s(@1){0})-safety_margin), ((n-left_bound_s(@1){0})+safety_margin))",
+        "con_h_expr": "@1=fmod(s,17.5), vertcat(((n+right_bound_s(@1){0})-safety_margin), ((n-left_bound_s(@1){0})+safety_margin))",
+        "con_h_expr_0": "@1=fmod(s,17.5), vertcat(((n+right_bound_s(@1){0})-safety_margin), ((n-left_bound_s(@1){0})+safety_margin))",
+        "con_h_expr_e": "@1=fmod(s,17.5), vertcat(((n+right_bound_s(@1){0})-safety_margin), ((n-left_bound_s(@1){0})+safety_margin))",
         "con_phi_expr": [],
         "con_phi_expr_0": [],
         "con_phi_expr_e": [],
@@ -376,12 +289,12 @@
         "cost_conl_custom_outer_hess": [],
         "cost_conl_custom_outer_hess_0": [],
         "cost_conl_custom_outer_hess_e": [],
-        "cost_expr_ext_cost": "((((weight_ddelta*sq(delta_dot))+(weight_dthrottle*sq(throttle_dot)))-((weight_ds*(((v_x*cos(theta))-(v_y*sin(theta)))/(1-(kapparef_s(fmod(s,76.4808)){0}*n))))/20))+(weight_beta*sq((atan2(v_y,v_x)-atan(((0.145*delta)/0.307))))))",
-        "cost_expr_ext_cost_0": "((((weight_ddelta*sq(delta_dot))+(weight_dthrottle*sq(throttle_dot)))-((weight_ds*(((v_x*cos(theta))-(v_y*sin(theta)))/(1-(kapparef_s(fmod(s,76.4808)){0}*n))))/20))+(weight_beta*sq((atan2(v_y,v_x)-atan(((0.145*delta)/0.307))))))",
+        "cost_expr_ext_cost": "(((((((15*sq(n))+(10*sq(theta)))-(3*sq(v_x)))+(0.1*sq(yaw_rate)))+(0.1*sq(delta)))+(0.1*sq(delta_dot)))+(0.1*sq(throttle_dot)))",
+        "cost_expr_ext_cost_0": "(((((((15*sq(n))+(10*sq(theta)))-(3*sq(v_x)))+(0.1*sq(yaw_rate)))+(0.1*sq(delta)))+(0.1*sq(delta_dot)))+(0.1*sq(throttle_dot)))",
         "cost_expr_ext_cost_custom_hess": [],
         "cost_expr_ext_cost_custom_hess_0": [],
         "cost_expr_ext_cost_custom_hess_e": [],
-        "cost_expr_ext_cost_e": "((weight_beta*sq((atan2(v_y,v_x)-atan(((0.145*delta)/0.307)))))-((weight_ds*(((v_x*cos(theta))-(v_y*sin(theta)))/(1-(kapparef_s(fmod(s,76.4808)){0}*n))))/20))",
+        "cost_expr_ext_cost_e": "(((((15*sq(n))+(10*sq(theta)))-(3*sq(v_x)))+(0.1*sq(yaw_rate)))+(0.1*sq(delta)))",
         "cost_psi_expr": [],
         "cost_psi_expr_0": [],
         "cost_psi_expr_e": [],
@@ -400,11 +313,11 @@
         "dyn_impl_dae_fun": null,
         "dyn_impl_dae_fun_jac": null,
         "dyn_impl_dae_jac": null,
-        "f_expl_expr": "@1=kapparef_s(fmod(s,76.4808)){0}, @2=((75*throttle)-(4.5*(v_x/sqrt((0.001+sq(v_x)))))), @3=(0.5*@2), @4=fmax(1,fabs(v_x)), @5=(20.1862*sin((1.2628*atan((7.6671*(atan2((v_y+(0.162*yaw_rate)),@4)-delta)))))), @6=(18.787*sin((1.7356*atan((7.1036*atan2((v_y-(0.145*yaw_rate)),@4)))))), vertcat((((v_x*cos(theta))-(v_y*sin(theta)))/(1-(@1*n))), ((v_x*sin(theta))+(v_y*cos(theta))), (yaw_rate-(@1*(((v_x*cos(theta))-(v_y*sin(theta)))/(1-(@1*n))))), (0.282486*((((0.5*@2)+(@3*cos(delta)))+(@5*sin(delta)))+((3.54*v_y)*yaw_rate))), (0.282486*((((@3*sin(delta))-@6)-(@5*cos(delta)))-((3.54*v_x)*yaw_rate))), (17.2503*((0.145*@6)-((0.162*@5)*cos(delta)))), delta_dot, throttle_dot)",
+        "f_expl_expr": "@1=kapparef_s(fmod(s,17.5)){0}, @2=(1-(@1*n)), @3=(fabs(@2)<0.2), @4=(((v_x*cos(theta))-(v_y*sin(theta)))/((@3?(0.2*sign(@2)):0)+((!@3)?@2:0))), @5=((75*throttle)-(4.5*(v_x/sqrt((0.001+sq(v_x)))))), @6=(0.5*@5), @7=fmax(1,fabs(v_x)), @8=(20.1862*sin((1.2628*atan((7.6671*(atan2((v_y+(0.162*yaw_rate)),@7)-delta)))))), @9=(18.787*sin((1.7356*atan((7.1036*atan2((v_y-(0.145*yaw_rate)),@7)))))), vertcat(@4, ((v_x*sin(theta))+(v_y*cos(theta))), (yaw_rate-(@1*@4)), (0.282486*((((0.5*@5)+(@6*cos(delta)))+(@8*sin(delta)))+((3.54*v_y)*yaw_rate))), (0.282486*((((@6*sin(delta))-@9)-(@8*cos(delta)))-((3.54*v_x)*yaw_rate))), (17.2503*((0.145*@9)-((0.162*@8)*cos(delta)))), delta_dot, throttle_dot)",
         "f_impl_expr": [],
         "gnsf_nontrivial_f_LO": 1,
         "gnsf_purely_linear": 0,
-        "name": "curv_model",
+        "name": "mpc_model",
         "nu_original": null,
         "p": "vertcat(weight_ds, weight_beta, weight_ddelta, weight_dthrottle, weight_qvx, weight_qvy, safety_margin)",
         "p_global": "0x1",
@@ -418,23 +331,23 @@
         "xdot": "xdot",
         "z": "0x1"
     },
-    "name": "curv_model",
+    "name": "mpc_model",
     "p_global_values": [],
     "parameter_values": [
-        7.0,
-        0.5,
-        0.1,
         10.0,
-        0.01,
+        0.5,
+        1.0,
+        10.0,
+        10.0,
         100.0,
-        0.1
+        0.0
     ],
     "problem_class": "OCP",
     "shared_lib_ext": ".so",
     "simulink_opts": null,
     "solver_options": {
         "N_horizon": 10,
-        "Tsim": 0.05,
+        "Tsim": 0.1,
         "adaptive_levenberg_marquardt_lam": 5.0,
         "adaptive_levenberg_marquardt_mu0": 0.001,
         "adaptive_levenberg_marquardt_mu_min": 1e-16,
@@ -445,16 +358,16 @@
         "collocation_type": "GAUSS_LEGENDRE",
         "cost_discretization": "EULER",
         "cost_scaling": [
-            0.05,
-            0.05,
-            0.05,
-            0.05,
-            0.05,
-            0.05,
-            0.05,
-            0.05,
-            0.05,
-            0.05,
+            0.1,
+            0.1,
+            0.1,
+            0.1,
+            0.1,
+            0.1,
+            0.1,
+            0.1,
+            0.1,
+            0.1,
             1.0
         ],
         "custom_templates": [],
@@ -509,7 +422,7 @@
         "nlp_solver_tol_ineq": 0.001,
         "nlp_solver_tol_min_step_norm": 0.0,
         "nlp_solver_tol_stat": 0.001,
-        "nlp_solver_type": "SQP_RTI",
+        "nlp_solver_type": "SQP",
         "nlp_solver_warm_start_first_qp": false,
         "nlp_solver_warm_start_first_qp_from_nlp": false,
         "num_threads_in_batch_solve": 1,
@@ -526,7 +439,7 @@
         "qp_solver_tol_eq": null,
         "qp_solver_tol_ineq": null,
         "qp_solver_tol_stat": null,
-        "qp_solver_warm_start": 0,
+        "qp_solver_warm_start": 1,
         "qpscaling_lb_norm_inf_grad_obj": 0.0001,
         "qpscaling_scale_constraints": "NO_CONSTRAINT_SCALING",
         "qpscaling_scale_objective": "NO_OBJECTIVE_SCALING",
@@ -541,16 +454,16 @@
         "search_direction_mode": "NOMINAL_QP",
         "shooting_nodes": [
             0.0,
-            0.05,
             0.1,
-            0.15000000000000002,
             0.2,
-            0.25,
-            0.3,
-            0.35,
-            0.39999999999999997,
-            0.44999999999999996,
-            0.49999999999999994
+            0.30000000000000004,
+            0.4,
+            0.5,
+            0.6,
+            0.7,
+            0.7999999999999999,
+            0.8999999999999999,
+            0.9999999999999999
         ],
         "sim_method_jac_reuse": [
             0,
@@ -593,18 +506,18 @@
         "solution_sens_qp_t_lam_min": 1e-09,
         "store_iterates": false,
         "tau_min": 0.0,
-        "tf": 0.5,
+        "tf": 1.0,
         "time_steps": [
-            0.05,
-            0.05,
-            0.05,
-            0.05,
-            0.05,
-            0.05,
-            0.05,
-            0.05,
-            0.05,
-            0.05
+            0.1,
+            0.1,
+            0.1,
+            0.1,
+            0.1,
+            0.1,
+            0.1,
+            0.1,
+            0.1,
+            0.1
         ],
         "timeout_heuristic": "LAST",
         "timeout_max_time": 0.0,

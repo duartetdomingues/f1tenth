@@ -81,7 +81,9 @@
         "ranges": "cpp",
         "shared_mutex": "cpp",
         "__nullptr": "cpp",
-        "__locale": "cpp"
+        "__locale": "cpp",
+        "core": "cpp",
+        "splines": "cpp"
     },
     "cmake.sourceDirectory": "/home/desktop/f1tenth/sim_mpc/learning_mpcc"
 }

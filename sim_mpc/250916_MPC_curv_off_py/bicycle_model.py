@@ -53,7 +53,7 @@ def bicycle_model(
     constraint = types.SimpleNamespace()
     model = types.SimpleNamespace()
 
-    model_name = "curv_model"
+    model_name = "mpc_model"
 
     length = len(s0)
     pathlength = s0[-1]
@@ -360,21 +360,21 @@ def bicycle_model(
         )
 
     ext_cost = (
-        10*n**2 +
-        5*theta**2 -
-        0.1*(v_x)**2 +
+        15*n**2 +
+        10*theta**2 -
+        3*(v_x)**2 +
         0.1*yaw_rate**2 +
-        1*delta**2 +
+        0.1*delta**2 +
         0.1*delta_dot**2 +
         0.1*throttle_dot**2
     )
 
     ext_cost_e = (
-        10*n**2 +
-        5*theta**2 -
-        0.1*(v_x)**2 +
+        15*n**2 +
+        10*theta**2 -
+        3*(v_x)**2 +
         0.1*yaw_rate**2 +
-        1*delta**2
+        0.1*delta**2
     )
 
     """ model.cost_expr_ext_cost_0 = ext_cost
