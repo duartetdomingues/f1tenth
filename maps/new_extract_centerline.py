@@ -7,14 +7,21 @@ import yaml
 import pandas as pd
 from shapely.geometry import LineString, Point
 
-# === 1. Carregar mapa binário (0 = livre, 1 = obstáculo)
+### Configurações ######
+
 #map_files = "../maps/map_2025-09-09_10-52-29/map_output"
 map_files = "../maps/test_map/map_output"
 map_path = map_files + ".pgm"
 
 direction = "counter-clockwise"  # "clockwise" or "counter-clockwise"
-amostragem = 0.01  # em metros
+amostragem = 0.1  # em metros
 
+# Get the last folder name from the map path
+last_folder_name = os.path.basename(os.path.dirname(map_path))
+print(f"Last folder name: {last_folder_name}")
+filename = "centerline_" + last_folder_name + ".csv"
+
+# === 1. Carregar mapa binário (0 = livre, 1 = obstáculo)
 map_img = cv2.imread(map_path, cv2.IMREAD_GRAYSCALE)
 
 if map_img is None:
@@ -293,8 +300,6 @@ total_length_px = s[-1]
 
 print(f"Comprimento total da centerline: {total_length_px*resolution:.2f} metros")
 
-
-
 # Amostrar pontos a cada 0.01m usando interpolação linear
 s_uniform = np.arange(0, total_length_px * resolution + amostragem, amostragem)
 print(f"Total de pontos amostrados: {s_uniform}")
@@ -572,6 +577,7 @@ def find_normal_distances(centerline_points, contour_left, contour_right):
         else:
             if n_l or n_l[-1] is not None:
                 print(f"Warning: No intersection found for left margin at point {i}, using last valid distance.")
+                dist = n_l[-1]
             else:   
                 print(f"Warning: No intersection found for left margin at point {i}, using zero distance.")
                 exit(1)
@@ -612,6 +618,7 @@ def find_normal_distances(centerline_points, contour_left, contour_right):
         else:
             if n_r or n_r[-1] is not None:
                 print(f"Warning: No intersection found for right margin at point {i}, using last valid distance.")
+                dist = n_r[-1]
             else:   
                 print(f"Warning: No intersection found for right margin at point {i}, using zero distance.")
                 exit(1)
@@ -637,6 +644,31 @@ n_r_pixel = np.abs(n_r_pixel) """
 
 n_l = n_l_pixel * resolution
 n_r = n_r_pixel * resolution
+
+from casadi import interpolant
+
+# Create interpolants for left and right bounds
+left_bound_s = interpolant("left_bound_s", "bspline", [s_uniform], n_l)
+right_bound_s = interpolant("right_bound_s", "bspline", [s_uniform], n_r)
+
+# Generate values for plotting
+s_plot = np.linspace(s_uniform[0], s_uniform[-1], 1000)
+n_l_plot = left_bound_s(s_plot).full().flatten()
+n_r_plot = right_bound_s(s_plot).full().flatten()
+
+# Plot the interpolated bounds
+plt.figure(figsize=(10, 4))
+plt.plot(s_plot, n_l_plot, label='Interpolated Left Bound (n_l)', color='red')
+plt.plot(s_plot, n_r_plot, label='Interpolated Right Bound (n_r)', color='blue')
+plt.scatter(s_uniform, n_l, label='Original Left Bound (n_l)', color='red', s=10, alpha=0.5)
+plt.scatter(s_uniform, n_r, label='Original Right Bound (n_r)', color='blue', s=10, alpha=0.5)
+plt.xlabel('s [m]')
+plt.ylabel('Distance [m]')
+plt.title('Interpolated Normal Distances to Boundaries')
+plt.legend()
+plt.grid(True)
+plt.tight_layout()
+plt.show()
 
 #plot the normal distances to the boundaries
 plt.figure(figsize=(10, 4))
@@ -682,7 +714,7 @@ plt.show()
 
 #plot in pixels 2d
 plt.figure(figsize=(10, 4))
-plt.imshow(occupancy, cmap='gray', origin='lower')
+plt.imshow(occupancy, cmap='gray', origin='lower', vmin=-100, vmax=255)
 plt.plot(x_s_pixel, y_s_pixel, 'g-', label='Centerline')
 x_l_pixel = x_s_pixel + n_l_pixel * np.cos(psi + np.pi / 2)
 y_l_pixel = y_s_pixel + n_l_pixel * np.sin(psi + np.pi / 2)
@@ -705,11 +737,8 @@ print(f"len(n_l): {len(n_l)}")
 print(f"len(n_r): {len(n_r)}")
 
 
-# Get the last folder name from the map path
-last_folder_name = os.path.basename(os.path.dirname(map_path))
-print(f"Last folder name: {last_folder_name}")
 
-filename = "centerline_" + last_folder_name + ".csv"
+
 
 
 # Export to CSV

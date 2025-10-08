@@ -11,9 +11,10 @@ from scipy.spatial import cKDTree
 ##########################################
 # CONFIGURAÇÕES
 ##########################################
-map_files = "maps/map_2025-09-21_15-05-08/map_output"
+map_files = "maps/test_map/map_output"
+traj_dir = "traj"
 map_path = map_files + ".pgm"
-yaml_path = map_files + ".yaml"
+yaml_path =  map_files + ".yaml"
 direction = "counter-clockwise"  # ou "clockwise" ou "counter-clockwise"
 amostragem = 0.1  # espaçamento em metros
 
@@ -437,9 +438,10 @@ df = pd.DataFrame({
     "n_r": np.round(n_r_A_real,3),
 })
 
-filename = "centerline_" + os.path.basename(os.path.dirname(map_path)) + ".csv"
-df.to_csv(filename, index=False)
-print(f"CSV exportado: {filename}")
+filename = f"centerline_{amostragem:.2f}_" + os.path.basename(os.path.dirname(map_path)) + ".csv"
+csv_file = os.path.join(traj_dir, filename)
+df.to_csv(csv_file, index=False)
+print(f"CSV exportado: {csv_file}")
 
 
 df2 = pd.DataFrame({
@@ -451,6 +453,7 @@ df2 = pd.DataFrame({
     "n_r": np.round(n_r_B_real,3),
 })
 
-filename2 = "centerline_" + os.path.basename(os.path.dirname(map_path)) + "_v2.csv"
-df2.to_csv(filename2, index=False)
-print(f"CSV exportado: {filename2}")
+filename2 = f"centerline_{amostragem:.2f}_" + os.path.basename(os.path.dirname(map_path)) + "_v2.csv"
+csv_file2 = os.path.join(traj_dir, filename2)
+df2.to_csv(csv_file2, index=False)
+print(f"CSV exportado: {csv_file2}")
