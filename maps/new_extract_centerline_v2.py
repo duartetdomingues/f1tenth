@@ -11,12 +11,12 @@ from scipy.spatial import cKDTree
 ##########################################
 # CONFIGURAÇÕES
 ##########################################
-map_files = "maps/test_map/map_output"
+map_files = "maps/map_2025-10-11_19-15-42/map_output"
 traj_dir = "traj"
 map_path = map_files + ".pgm"
 yaml_path =  map_files + ".yaml"
 direction = "counter-clockwise"  # ou "clockwise" ou "counter-clockwise"
-amostragem = 0.1  # espaçamento em metros
+amostragem = 0.05  # espaçamento em metros
 
 ##########################################
 # FUNÇÕES UTILITÁRIAS
@@ -36,7 +36,7 @@ def load_map(map_path, yaml_path):
         raise KeyError(f"Chave ausente no arquivo YAML: {e}")
 
     map_img = np.flipud(map_img)
-    binary = (map_img > 220).astype(np.uint8) * 255
+    binary = (map_img > 150).astype(np.uint8) * 255
     return map_img, binary, resolution, origin
 
 def extract_contours(binary, direction="counter-clockwise"):
@@ -54,6 +54,10 @@ from scipy.interpolate import splprep, splev, interp1d
 from shapely.geometry import LineString, Point
 from scipy.spatial import cKDTree
 import numpy as np
+from matplotlib.collections import LineCollection
+
+def unit_vector(v):
+    return v / np.linalg.norm(v)
 
 def build_centerline(contour1, contour2, amostragem, resolution, direction="counter-clockwise"):
     """
@@ -69,10 +73,22 @@ def build_centerline(contour1, contour2, amostragem, resolution, direction="coun
 
     # === A) Emparelhar contorno1->contorno2
     centerline_points1 = []
-    for p1 in contour1:
-        dists = np.linalg.norm(contour2 - p1, axis=1)
-        p2 = contour2[np.argmin(dists)]
-        centerline_points1.append((p1 + p2) / 2.0)
+    for i, p1 in enumerate(contour1):
+        # Direção tangente local
+        t = contour1[(i+1)%len(contour1)] - contour1[i-1]
+        t = unit_vector(t)
+        n = np.array([-t[1], t[0]])  # normal à esquerda
+
+        # Produto escalar para achar pontos do outro contorno “à esquerda”
+        rel = contour2 - p1
+        proj = rel @ n  # projeção na direção normal
+        mask = proj > 0  # só pega pontos “do lado esquerdo”
+
+        if np.any(mask):
+            candidates = contour2[mask]
+            dists = np.linalg.norm(candidates - p1, axis=1)
+            p2 = candidates[np.argmin(dists)]
+            centerline_points1.append((p1 + p2) / 2.0)
 
     # === B) Emparelhar contorno2->contorno1
     centerline_points2 = []
@@ -83,7 +99,7 @@ def build_centerline(contour1, contour2, amostragem, resolution, direction="coun
 
     # === C) Fundir e eliminar quase-duplicados
     cl_raw = np.vstack([centerline_points1, centerline_points2])
-    cl_raw = np.unique(np.round(cl_raw, 1), axis=0)  # arredonda a 1 casa decimal
+    cl_raw = np.unique(np.round(cl_raw, 2), axis=0)  # arredonda a 1 casa decimal
 
     # === D) Construir curva-guia (usando a primeira centerline)
     guide = LineString(np.vstack([centerline_points1, centerline_points1[0]]))
@@ -94,6 +110,15 @@ def build_centerline(contour1, contour2, amostragem, resolution, direction="coun
     ord_idx = np.argsort(s_vals)
     ordered = cl_raw[ord_idx]
     s_sorted = s_vals[ord_idx]
+    
+    # Plot order of points for debugging
+    plt.figure()
+    plt.imshow(binary, cmap="gray", origin="lower")
+    plt.scatter(ordered[:,0], ordered[:,1], c=np.arange(len(ordered)), cmap='viridis', s=8)
+    plt.colorbar(label='Order')
+    plt.title("Order of centerline points before spline fit")
+    plt.axis("equal")
+    plt.show()
 
     # === F) Cortar no maior gap (para fechar corretamente)
     gaps = np.diff(np.r_[s_sorted, s_sorted[0] + L_px])
@@ -252,8 +277,8 @@ def bounds_by_normals(centerline, contour_left, contour_right, psi):
                 plt.title("Interseção ausente para d_left ou d_right")
                 plt.axis("equal")
                 plt.show()
-            else:
-                print("⚠️ Aviso: interseção ausente para d_left ou d_right — usando último valor válido no ponto", i)
+            else:                    
+                print("⚠️ Aviso2: interseção ausente para d_left ou d_right — usando último valor válido no ponto", i)
         if i==300:
             plt.figure()
             plt.plot(contour_left[:, 0], contour_left[:, 1], "r-", label="Contorno Esquerdo")
@@ -277,6 +302,27 @@ def bounds_by_normals(centerline, contour_left, contour_right, psi):
         n_l.append(d_left if d_left else n_l[-1] if n_l else 0)
         n_r.append(d_right if d_right else n_r[-1] if n_r else 0)
 
+    # pós-processar n_l: substituir zeros pelo último valor não-zero (circular)
+    def _fill_circular_prev_nonzero(values):
+        arr = np.asarray(values, dtype=float).copy()
+        N = arr.size
+        if N == 0:
+            return arr
+        nz_mask = arr != 0
+        if not np.any(nz_mask):
+            return arr
+        start = np.argmax(nz_mask)  # primeiro índice não-zero
+        last = start
+        for k in range(1, N + 1):
+            idx = (start + k) % N
+            if arr[idx] == 0:
+                arr[idx] = arr[last]
+            else:
+                last = idx
+        return arr
+
+    n_l = _fill_circular_prev_nonzero(n_l)
+    n_r = _fill_circular_prev_nonzero(n_r)
     return np.array(n_l), np.array(n_r)
 
 ##########################################
@@ -342,6 +388,39 @@ plt.plot(s, kappa)
 plt.xlabel("s [m]"); plt.ylabel("κ [1/m]")
 plt.title("Curvatura ao longo da trajetória")
 plt.grid(True); plt.show()
+
+# Curvatura no plano XY (linha colorida por κ)
+
+# Segmentar a linha
+pts = np.column_stack((x_s, y_s))
+segments = np.stack([pts, np.roll(pts, -1, axis=0)], axis=1)
+
+fig, ax = plt.subplots()
+norm = plt.Normalize(kappa.min(), kappa.max())
+lc = LineCollection(segments, cmap='coolwarm', norm=norm)
+lc.set_array(kappa)
+lc.set_linewidth(2.0)
+ax.add_collection(lc)
+ax.plot([], [], 'k-', alpha=0.3, label='centerline')  # legenda dummy
+
+ax.set_aspect('equal', 'box')
+ax.set_xlim(x_s.min()-0.5, x_s.max()+0.5)
+ax.set_ylim(y_s.min()-0.5, y_s.max()+0.5)
+cbar = fig.colorbar(lc, ax=ax, label='Curvatura κ [1/m]')
+ax.set_title('Curvatura no plano XY')
+ax.set_xlabel('x [m]')
+ax.set_ylabel('y [m]')
+plt.show()
+
+# (Opcional) versão simples com scatter
+plt.figure()
+sc = plt.scatter(x_s, y_s, c=kappa, cmap='coolwarm', s=8)
+plt.plot(x_s, y_s, 'k-', alpha=0.3, linewidth=0.5)
+plt.gca().set_aspect('equal', 'box')
+plt.colorbar(sc, label='Curvatura κ [1/m]')
+plt.title('Curvatura (scatter) no plano XY')
+plt.xlabel('x [m]'); plt.ylabel('y [m]')
+plt.show()
 
 
 psi = np.arctan2(np.gradient(centerline_px[:,1]), np.gradient(centerline_px[:,0]))
