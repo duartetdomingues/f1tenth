@@ -134,7 +134,7 @@ def bicycle_model(
     weight_ddelta = MX.sym("weight_ddelta")
     weight_dthrottle = MX.sym("weight_dthrottle")
     weight_qvx = MX.sym("weight_qvx")
-    weight_qvy = MX.sym("weight_qvy")
+    v_x_ref = MX.sym("v_x_ref")
     safety_margin = MX.sym("safety_margin")
     p = vertcat(
         weight_ds,
@@ -142,7 +142,7 @@ def bicycle_model(
         weight_ddelta,
         weight_dthrottle,
         weight_qvx,
-        weight_qvy,
+        v_x_ref,
         safety_margin,
     )  # lateral acceleration constraints
     n_p = p.size()[0]
@@ -164,7 +164,7 @@ def bicycle_model(
     right_bound = right_bound_s(s_mod)
 
     # dynamics
-    den = 1 - kapparef * n
+    # den = 1 - kapparef * n
     # den_safe = cs.if_else(
     #     cs.fabs(den) < 0.2, 0.2 * cs.sign(den), den
     # )  # 0.2 é conservador
@@ -200,7 +200,6 @@ def bicycle_model(
     model.x0 = np.zeros(n_x)
     # model.x0 = np.array([32.6, 0.1, 0.1, 0.1, 0.1, 0.0, 0.0, 0.0], dtype=float)
     
-    v_x_ref = 2
     s_dot_ref = 5
 
     terminal_multiplier = 1
@@ -233,9 +232,9 @@ def bicycle_model(
     
     model.W = np.diag([
         2 * 5,      # penalização de n
-        2 * 10,     # penalização de theta
-        2 * 2.5,     # penalização de erro em v_x
-        2 * 10,     # penalização de erro em yaw_rate
+        2 * 5,     # penalização de theta
+        2 * 5,     # penalização de erro em v_x
+        2 * 5,     # penalização de erro em yaw_rate
         2 * 1,      # penalização de ddelta
         2 * 1       # penalização de dv_x
     ])

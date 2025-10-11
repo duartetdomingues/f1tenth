@@ -102,8 +102,18 @@ class MPCSim:
 
         # 4) Parâmetros online (constantes aqui), para todos os estágios
         self.p_vec = get_parameters(self.stmpc).astype(float)
-        for stage in range(self.stmpc.N + 1):
+        
+        y_ref = np.zeros(self.model.n_x)
+        y_ref[2] = self.stmpc.v_x_ref  # v_x_ref
+        for stage in range(self.stmpc.N):
             self.solver.set(stage, "p", self.p_vec)
+            self.solver.set(stage, "yref", y_ref)  
+            
+        self.solver.set(self.stmpc.N, "p", self.p_vec)
+        self.solver.set(self.stmpc.N, "yref", y_ref[:-2]) # remove control refs from yref at terminal stage
+        
+       
+        
 
         # 5) Estado inicial (ajusta conforme o teu modelo)
         self.x = x_init
@@ -418,7 +428,7 @@ def main():
 
     traj_default = "./traj/centerline_0.10_test_map_v2.csv"
     #traj_default ='traj/centerline_map_2025-09-09_10-52-29.csv'
-    traj_default ='traj/centerline_map_2025-09-21_15-05-08_v2.csv'
+    traj_default ='traj/centerline_0.05_map_2025-10-11_12-41-37.csv'
     #traj_default = Path("./traj/track_data.csv")
 
     # Exemplo: [s, n, mu, vx, r, delta] 27

@@ -103,6 +103,7 @@ def make_configs(overrides: dict | None = None) -> tuple[SimpleNamespace, Simple
 
     stmpc.track_safety_margin = float(cfg["track_safety_margin"])  # m
     stmpc.track_max_width = float(cfg["track_max_width"])          # sentinel upper bound
+    stmpc.v_x_ref = float(cfg["v_x_ref"])                          # desired velocity
     #stmpc.overtake_d = float(cfg.get("overtake_d", 0.0))
 
     # slack penalties

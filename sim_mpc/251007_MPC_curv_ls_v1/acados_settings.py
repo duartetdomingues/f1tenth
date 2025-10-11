@@ -298,7 +298,7 @@ def get_parameters(cfg) -> np.ndarray:
     """Get parameters from stmpc_config"""
     params = np.array(
         [
-            cfg.qs, cfg.qbeta, cfg.qddelta, cfg.qdthrottle, cfg.qvx, cfg.qvy, cfg.track_safety_margin
+            cfg.qs, cfg.qbeta, cfg.qddelta, cfg.qdthrottle, cfg.qvx, cfg.v_x_ref, cfg.track_safety_margin
         ]
     ).astype(float)
 

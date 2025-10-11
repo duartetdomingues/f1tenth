@@ -5,7 +5,7 @@ from collections import defaultdict
 import os
 
 # Get the path to the bag folder (not the metadata.db3 file)
-bag_folder = '/home/desktop/Documents/rosbag/test_mapping_06_26/no_slam/rosbag2_2025_06_26-15_47_53'
+bag_folder = '/home/desktop/Documents/rosbag/rosbag2_2025_10_09-12_59_26'
 db_name = os.path.basename(bag_folder)
 bag_path = os.path.join(bag_folder, db_name + '_0.db3')
 
