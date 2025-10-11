@@ -59,7 +59,7 @@ from matplotlib.collections import LineCollection
 def unit_vector(v):
     return v / np.linalg.norm(v)
 
-def build_centerline(contour1, contour2, amostragem, resolution, direction="counter-clockwise"):
+def build_centerline(contour1, contour2, amostragem, resolution, direction="counter-clockwise", origin=(0,0)):
     """
     Constrói a centerline a partir de dois contornos (em pixels).
     - Usa emparelhamento de pontos entre contornos
@@ -71,30 +71,82 @@ def build_centerline(contour1, contour2, amostragem, resolution, direction="coun
     Retorna: centerline_px (array [N,2] em pixels, equiespaciado, ordenado)
     """
 
+    # Order contours by proximity to origin in the specified direction
+    def order_contour_by_origin(contour, origin_px, direction):
+        # Calculate distances from each point in the contour to the origin
+        distances = np.linalg.norm(contour - origin_px, axis=1)
+        # Find the index of the closest point to the origin
+        start_idx = np.argmin(distances)
+        # Roll the contour so that it starts at the closest point
+        ordered_contour = np.roll(contour, -start_idx, axis=0)
+        # Reverse the contour if the direction is clockwise
+        if direction == "clockwise":
+            ordered_contour = ordered_contour[::-1]
+        return ordered_contour
+
+    origin_px = np.array([-origin[0]/resolution, -origin[1]/resolution])
+
+    # Order both contours
+    contour1 = order_contour_by_origin(contour1, origin_px, direction)
+    contour2 = order_contour_by_origin(contour2, origin_px, direction)
+
+    # Visualize the contours and their ordering
+    plt.figure()
+    plt.imshow(binary, cmap="gray", origin="lower")
+    plt.scatter(contour1[:, 0], contour1[:, 1], c=np.arange(len(contour1)), cmap='viridis', s=8)
+    plt.scatter(contour2[:, 0], contour2[:, 1], c=np.arange(len(contour2)), cmap='viridis', s=8)
+    plt.scatter(origin_px[0], origin_px[1], c="g", label="Origin (px)", zorder=5)
+    plt.legend()
+    plt.title("Ordered Contours")
+    plt.axis("equal")
+    plt.show()
+
+    window = int(len(contour2) * 0.1)
+    n1 = len(contour1)
+    n2 = len(contour2)
+    print("Window size for matching:", window, n2)
+
     # === A) Emparelhar contorno1->contorno2
     centerline_points1 = []
     for i, p1 in enumerate(contour1):
-        # Direção tangente local
-        t = contour1[(i+1)%len(contour1)] - contour1[i-1]
-        t = unit_vector(t)
-        n = np.array([-t[1], t[0]])  # normal à esquerda
+        # Índices locais com wrap-around
 
-        # Produto escalar para achar pontos do outro contorno “à esquerda”
-        rel = contour2 - p1
-        proj = rel @ n  # projeção na direção normal
-        mask = proj > 0  # só pega pontos “do lado esquerdo”
+        ii = int(i*n2/n1)
+        idx_min = (ii - window) % n2
+        idx_max = (ii + window) % n2
 
-        if np.any(mask):
-            candidates = contour2[mask]
-            dists = np.linalg.norm(candidates - p1, axis=1)
-            p2 = candidates[np.argmin(dists)]
-            centerline_points1.append((p1 + p2) / 2.0)
+        if idx_min < idx_max:
+            local_contour2 = contour2[idx_min:idx_max]
+        else:
+            local_contour2 = np.vstack((contour2[idx_min:], contour2[:idx_max]))
+
+        # Emparelha só dentro da janela
+        dists = np.linalg.norm(local_contour2 - p1, axis=1)
+        p2 = local_contour2[np.argmin(dists)]
+        centerline_points1.append((p1 + p2) / 2.0)
+
+    # Garantir que o array seja circular
+    centerline_points1 = np.array(centerline_points1)
+    centerline_points1 = np.vstack([centerline_points1, centerline_points1[0]])
 
     # === B) Emparelhar contorno2->contorno1
     centerline_points2 = []
-    for p1 in contour2:
-        dists = np.linalg.norm(contour1 - p1, axis=1)
-        p2 = contour1[np.argmin(dists)]
+    window = int(len(contour1) * 0.1)
+
+    for i, p2 in enumerate(contour2):
+        # Índices locais com wrap-around
+        ii = int(i*n1/n2)
+        idx_min = (ii - window) % n1
+        idx_max = (ii + window) % n1
+
+        if idx_min < idx_max:
+            local_contour1 = contour1[idx_min:idx_max]
+        else:
+            local_contour1 = np.vstack((contour1[idx_min:], contour1[:idx_max]))
+
+        # Emparelha só dentro da janela
+        dists = np.linalg.norm(local_contour1 - p2, axis=1)
+        p1 = local_contour1[np.argmin(dists)]
         centerline_points2.append((p1 + p2) / 2.0)
 
     # === C) Fundir e eliminar quase-duplicados
@@ -356,6 +408,7 @@ plt.axis("equal")
 plt.show()
 
 contour1, contour2 = extract_contours(binary, direction)
+
 plt.figure()
 plt.imshow(binary, cmap="gray", origin="lower")
 plt.plot(contour1[:,0], contour1[:,1], "r", label="Margem 1")
@@ -363,7 +416,7 @@ plt.plot(contour2[:,0], contour2[:,1], "b", label="Margem 2")
 plt.legend(); plt.axis("equal"); plt.title("Contornos extraídos")
 plt.show()
 
-centerline_px = build_centerline(contour1, contour2, amostragem, resolution, direction)
+centerline_px = build_centerline(contour1, contour2, amostragem, resolution, direction, origin)
 #s, x_s, y_s, kappa, centerline_px = smooth_centerline(centerline_px, origin, resolution, amostragem)
 
 # Rebuild centerline so that it starts at the map origin (in pixels)
