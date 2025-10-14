@@ -11,12 +11,22 @@ from scipy.spatial import cKDTree
 ##########################################
 # CONFIGURAÇÕES
 ##########################################
-map_files = "maps/map_2025-10-11_19-15-42/map_output"
+map_files = "/home/duarte/Desktop/f1tenth/maps/map_2025-10-11_19-15-42/map_output"
 traj_dir = "traj"
 map_path = map_files + ".pgm"
 yaml_path =  map_files + ".yaml"
 direction = "counter-clockwise"  # ou "clockwise" ou "counter-clockwise"
-amostragem = 0.05  # espaçamento em metros
+amostragem = 0.1  # espaçamento em metros
+plot = 1 # 0 = none, 1 = some, 2 = all debug plots
+
+PLOT_NONE = 0
+PLOT_MAIN = 1
+PLOT_DEBUG = 2
+
+
+def _plot_enabled(level=PLOT_MAIN):
+    """Return True when the global plot flag permits plotting for the given level."""
+    return plot >= level
 
 ##########################################
 # FUNÇÕES UTILITÁRIAS
@@ -85,21 +95,23 @@ def build_centerline(contour1, contour2, amostragem, resolution, direction="coun
         return ordered_contour
 
     origin_px = np.array([-origin[0]/resolution, -origin[1]/resolution])
+    debug_plots = _plot_enabled(PLOT_DEBUG)
 
     # Order both contours
     contour1 = order_contour_by_origin(contour1, origin_px, direction)
     contour2 = order_contour_by_origin(contour2, origin_px, direction)
 
     # Visualize the contours and their ordering
-    plt.figure()
-    plt.imshow(binary, cmap="gray", origin="lower")
-    plt.scatter(contour1[:, 0], contour1[:, 1], c=np.arange(len(contour1)), cmap='viridis', s=8)
-    plt.scatter(contour2[:, 0], contour2[:, 1], c=np.arange(len(contour2)), cmap='viridis', s=8)
-    plt.scatter(origin_px[0], origin_px[1], c="g", label="Origin (px)", zorder=5)
-    plt.legend()
-    plt.title("Ordered Contours")
-    plt.axis("equal")
-    plt.show()
+    if debug_plots:
+        plt.figure()
+        plt.imshow(binary, cmap="gray", origin="lower")
+        plt.scatter(contour1[:, 0], contour1[:, 1], c=np.arange(len(contour1)), cmap='viridis', s=8)
+        plt.scatter(contour2[:, 0], contour2[:, 1], c=np.arange(len(contour2)), cmap='viridis', s=8)
+        plt.scatter(origin_px[0], origin_px[1], c="g", label="Origin (px)", zorder=5)
+        plt.legend()
+        plt.title("Ordered Contours")
+        plt.axis("equal")
+        plt.show()
 
     window = int(len(contour2) * 0.1)
     n1 = len(contour1)
@@ -162,15 +174,16 @@ def build_centerline(contour1, contour2, amostragem, resolution, direction="coun
     ord_idx = np.argsort(s_vals)
     ordered = cl_raw[ord_idx]
     s_sorted = s_vals[ord_idx]
-    
+
     # Plot order of points for debugging
-    plt.figure()
-    plt.imshow(binary, cmap="gray", origin="lower")
-    plt.scatter(ordered[:,0], ordered[:,1], c=np.arange(len(ordered)), cmap='viridis', s=8)
-    plt.colorbar(label='Order')
-    plt.title("Order of centerline points before spline fit")
-    plt.axis("equal")
-    plt.show()
+    if debug_plots:
+        plt.figure()
+        plt.imshow(binary, cmap="gray", origin="lower")
+        plt.scatter(ordered[:,0], ordered[:,1], c=np.arange(len(ordered)), cmap='viridis', s=8)
+        plt.colorbar(label='Order')
+        plt.title("Order of centerline points before spline fit")
+        plt.axis("equal")
+        plt.show()
 
     # === F) Cortar no maior gap (para fechar corretamente)
     gaps = np.diff(np.r_[s_sorted, s_sorted[0] + L_px])
@@ -203,33 +216,71 @@ def build_centerline(contour1, contour2, amostragem, resolution, direction="coun
             mask = step < 3.0*med
             keep = np.ones(len(ordered), dtype=bool)
             keep[np.where(~mask)[0]] = False
-            ordered = ordered[keep]
+            ordered = ordered[keep] 
 
     # === I) Suavização leve antes do fit
-    if len(ordered) < 7:
-        x_sg, y_sg = ordered[:,0], ordered[:,1]
+    # === I) Suavização (controlada por parâmetro)
+    # Defina antes de chamar build_centerline (valor padrão = 1.0):
+    # CENTERLINE_SMOOTH = 0    -> sem suavização
+    # CENTERLINE_SMOOTH = 0.5  -> muito leve
+    # CENTERLINE_SMOOTH = 1.0  -> padrão
+    # CENTERLINE_SMOOTH = 2.0  -> mais forte
+    smooth_param = 0.5  # ajustar conforme necessário
+
+    if smooth_param <= 0 or len(ordered) < 7:
+        # Sem suavização
+        x_sg, y_sg = ordered[:, 0], ordered[:, 1]
     else:
-        win = max(7, (len(ordered)//180)*2 + 1)   # ímpar
-        win = min(win, len(ordered) - (1 - len(ordered)%2))
-        x_sg = savgol_filter(ordered[:,0], window_length=win, polyorder=3, mode='wrap')
-        y_sg = savgol_filter(ordered[:,1], window_length=win, polyorder=3, mode='wrap')
+        # Calcula janela ímpar proporcional ao tamanho e ao fator
+        # Cresce bem devagar com o número de pontos e com smooth_param
+        base = int(((len(ordered) / 800.0) * smooth_param))
+        win = max(5, base * 2 + 1)              # garante ímpar
+        # Limite superior também escalonado (mantém controle)
+        max_cap = int(5 + smooth_param * 12)    # 5..17 (para 1.0) / maior p/ >1
+        if max_cap % 2 == 0:
+            max_cap += 1
+        win = min(win, max_cap)
+        # Segurança: janela não pode ser >= número de pontos
+        if win >= len(ordered):
+            win = len(ordered) - 1
+            if win % 2 == 0:
+                win -= 1
+        # Fallback final
+        win = max(5, win)
+        x_sg = savgol_filter(ordered[:, 0], window_length=win, polyorder=2, mode='wrap')
+        y_sg = savgol_filter(ordered[:, 1], window_length=win, polyorder=2, mode='wrap')
+
     ordered = np.column_stack([x_sg, y_sg])
+
+    # Plot order of points for debugging
+    if debug_plots:
+        plt.figure()
+        plt.imshow(binary, cmap="gray", origin="lower")
+        plt.scatter(ordered[:,0], ordered[:,1], c=np.arange(len(ordered)), cmap='viridis', s=8)
+        plt.colorbar(label='Order')
+        plt.title("Order of centerline points before spline fit")
+        plt.axis("equal")
+        plt.show()
 
     # === J) Fit spline periódico
     closed = np.vstack([ordered, ordered[0]])
-    s_smooth = (0.5**2) * len(closed)   # suavização
-    tck, u = splprep([closed[:,0], closed[:,1]], s=s_smooth, per=True, k=3)
+    s_smooth = (0.2**2) * len(closed)   # suavização ajustada para evitar cortes excessivos
+
+    print("Spline smoothing factor:", s_smooth)
+    tck, u = splprep([closed[:,0], closed[:,1]], s=s_smooth, per=True, k=3) # ajuste spline periódico
 
     # === K) Reamostrar uniformemente
-    u_dense = np.linspace(0, 1, 4000)
-    xd, yd = splev(u_dense, tck)
+    u_dense = np.linspace(0, 1, 40000) # denso para cálculo de comprimento
+    xd, yd = splev(u_dense, tck) # spline denso
+
     ds_dense = np.hypot(np.diff(xd), np.diff(yd))
     s_dense = np.insert(np.cumsum(ds_dense), 0, 0.0)
     L_px_fit = s_dense[-1]
     u_of_s = interp1d(s_dense / L_px_fit, u_dense, kind="linear", fill_value="extrapolate")
 
-    esp_px = max(1e-6, amostragem / resolution)
-    n_samples = max(32, int(np.floor(L_px_fit / esp_px)))
+    esp_px = max(1e-6, 0.1 / (resolution * 1.2))
+    n_samples = max(64, int(np.floor(L_px_fit / esp_px)))
+    print("Length of fitted spline (px):", L_px_fit, "Number of samples:", n_samples)
     s_target_frac = np.linspace(0, 1, n_samples, endpoint=False)
     u_equi = u_of_s(s_target_frac)
     x_eq, y_eq = splev(u_equi, tck)
@@ -294,6 +345,7 @@ def bounds_by_normals(centerline, contour_left, contour_right, psi):
     contour_line_left = LineString(contour_left)
     contour_line_right = LineString(contour_right)
     n_l, n_r = [], []
+    debug_plots = _plot_enabled(PLOT_DEBUG)
     for i, pt in enumerate(centerline):
         pt = np.array(pt)
         normal_left = np.array([np.cos(psi[i] + np.pi/2), np.sin(psi[i] + np.pi/2)])
@@ -313,10 +365,9 @@ def bounds_by_normals(centerline, contour_left, contour_right, psi):
 
         d_left = nearest_dist(contour_line_left.intersection(line_left), pt)
         d_right = nearest_dist(contour_line_right.intersection(line_right), pt)
-        debug = False
         
         if d_left is None or d_right is None:
-            if debug:  # debug
+            if debug_plots:
                 plt.figure()
                 plt.plot(contour_left[:, 0], contour_left[:, 1], "r-", label="Contorno Esquerdo")
                 plt.plot(contour_right[:, 0], contour_right[:, 1], "b-", label="Contorno Direito")
@@ -331,7 +382,7 @@ def bounds_by_normals(centerline, contour_left, contour_right, psi):
                 plt.show()
             else:                    
                 print("⚠️ Aviso2: interseção ausente para d_left ou d_right — usando último valor válido no ponto", i)
-        if i==300:
+        if debug_plots and i == 300:
             plt.figure()
             plt.plot(contour_left[:, 0], contour_left[:, 1], "r-", label="Contorno Esquerdo")
             plt.plot(contour_right[:, 0], contour_right[:, 1], "b-", label="Contorno Direito")
@@ -399,22 +450,109 @@ def bounds_by_kdtree(centerline, contour_left, contour_right, psi):
 ##########################################
 map_img, binary, resolution, origin = load_map(map_path, yaml_path)
 
-plt.figure(figsize=(8, 6))
-plt.imshow(map_img, cmap="gray", origin="lower")
-plt.plot(-origin[0]/resolution, -origin[1]/resolution, "ro", label="Origem")
-plt.legend()
-plt.title("Mapa carregado (PGM)")
-plt.axis("equal")
-plt.show()
+# Separate gray, black, and white regions of the map
+gray_mask = (map_img > 120) & (map_img < 150)  # Gray region
+black_mask = map_img <= 120  # Black region
+white_mask = map_img >= 150  # White region
+
+# Visualize the separated regions
+if _plot_enabled(PLOT_DEBUG):
+    plt.figure(figsize=(12, 4))
+
+    plt.subplot(1, 3, 1)
+    plt.imshow(gray_mask, cmap="gray", origin="lower")
+    plt.title("Gray Region")
+    plt.axis("off")
+
+    plt.subplot(1, 3, 2)
+    plt.imshow(black_mask, cmap="gray", origin="lower")
+    plt.title("Black Region")
+    plt.axis("off")
+
+    plt.subplot(1, 3, 3)
+    plt.imshow(white_mask, cmap="gray", origin="lower")
+    plt.title("White Region")
+    plt.axis("off")
+
+    plt.tight_layout()
+    plt.show()
+
+# Build an RGB image labeling each region distinctly (plot with meter scale)
+h, w = map_img.shape
+rgb = np.zeros((h, w, 3), dtype=np.uint8)
+
+# Assign colors
+rgb[black_mask] = (0, 0, 0)          # black region
+rgb[gray_mask]  = (160, 160, 160)    # gray region
+rgb[white_mask] = (255, 255, 255)    # white region
+
+# Extent in world (meters): [xmin, xmax, ymin, ymax]
+extent = [origin[0], origin[0] + w * resolution,
+          origin[1], origin[1] + h * resolution]
+
+if _plot_enabled(PLOT_MAIN):
+    plt.figure(figsize=(8, 6))
+    plt.imshow(rgb, origin="lower", extent=extent, aspect='equal')
+    plt.plot(0, 0, "ro", label="Origin")
+    plt.title("Mapa (escala em metros): regiões preta, cinza e branca")
+    plt.grid(alpha=0.3)
+    # Make the image fill the axes exactly, keeping ticks visible
+    plt.xlim(extent[0], extent[1])
+    plt.ylim(extent[2], extent[3])
+    plt.axis("on")  # ensure axes stay visible
+    plt.gca().set_aspect('equal', adjustable='box')  # evita faixas brancas mantendo proporção
+    plt.legend()
+    plt.xlabel("x [m]")
+    plt.ylabel("y [m]")
+    plt.show()
+
+if _plot_enabled(PLOT_DEBUG):
+    plt.figure(figsize=(8, 6))
+    plt.imshow(binary, cmap="gray", origin="lower", extent=extent, aspect='equal')
+    plt.plot(0, 0, "ro", label="Origem")
+    # Make the image fill the axes exactly, keeping ticks visible
+    plt.xlim(extent[0], extent[1])
+    plt.ylim(extent[2], extent[3])
+    plt.axis("on")  # ensure axes stay visiblE
+    plt.legend()
+    plt.title("Mapa carregado (PGM)")
+    plt.xlabel("x [m]")
+    plt.ylabel("y [m]")
+    plt.show()
+
+if _plot_enabled(PLOT_DEBUG):
+    plt.figure()
+    ax = plt.gca()
+    ax.imshow(map_img, cmap="gray", origin="lower", extent=extent)
+    ax.plot(0, 0, "ro", label="Origem")
+    ax.set_xlim(extent[0], extent[1])
+    ax.set_ylim(extent[2], extent[3])
+    ax.set_aspect('equal', adjustable='box')  # evita faixas brancas mantendo proporção
+    ax.legend()
+    ax.set_title("Mapa carregado (PGM1)")
+    plt.tight_layout()
+    plt.xlabel("x [m]")
+    plt.ylabel("y [m]")
+    plt.show()
 
 contour1, contour2 = extract_contours(binary, direction)
 
-plt.figure()
-plt.imshow(binary, cmap="gray", origin="lower")
-plt.plot(contour1[:,0], contour1[:,1], "r", label="Margem 1")
-plt.plot(contour2[:,0], contour2[:,1], "b", label="Margem 2")
-plt.legend(); plt.axis("equal"); plt.title("Contornos extraídos")
-plt.show()
+contour1_r = contour1 * resolution + origin
+contour2_r = contour2 * resolution + origin
+
+if _plot_enabled(PLOT_MAIN):
+    plt.figure(figsize=(8, 6))
+    plt.imshow(rgb, cmap="gray", origin="lower",extent=extent, aspect='equal')
+    plt.scatter(contour1_r[:,0], contour1_r[:,1], s=2, c="r", label="Outside edge")
+    plt.scatter(contour2_r[:,0], contour2_r[:,1], s=2, c="b", label="Inside edge")
+    plt.xlim(extent[0], extent[1])
+    plt.ylim(extent[2], extent[3])
+    plt.gca().set_aspect('equal', adjustable='box')  # evita faixas brancas mantendo proporção
+    plt.legend()
+    plt.xlabel("x [m]")
+    plt.ylabel("y [m]")
+    plt.title("Contornos extraídos")
+    plt.show()
 
 centerline_px = build_centerline(contour1, contour2, amostragem, resolution, direction, origin)
 #s, x_s, y_s, kappa, centerline_px = smooth_centerline(centerline_px, origin, resolution, amostragem)
@@ -426,21 +564,30 @@ start_idx = np.argmin(dists_to_origin)
 centerline_px = np.roll(centerline_px, -start_idx, axis=0)
 s, x_s, y_s, kappa, centerline_px = smooth_centerline(centerline_px, origin, resolution, amostragem)
 
+centerline= centerline_px * resolution + origin
 
+if _plot_enabled(PLOT_MAIN):
+    plt.figure(figsize=(8, 6))
+    plt.imshow(rgb, cmap="gray", origin="lower", extent=extent, aspect='equal')
+    plt.plot(centerline[:,0], centerline[:,1], "g", label="Centerline")
+    plt.plot(contour1_r[:,0], contour1_r[:,1], "r", label="Outside edge")
+    plt.plot(contour2_r[:,0], contour2_r[:,1], "b", label="Inside edge")
+    plt.legend()
+    plt.gca().set_aspect('equal', adjustable='box')  # evita faixas brancas mantendo proporção
+    plt.title("Centerline inicial (px)")
+    plt.xlim(extent[0], extent[1])
+    plt.ylim(extent[2], extent[3])
+    plt.xlabel("x [m]")
+    plt.ylabel("y [m]")
+    plt.show()
 
-plt.figure()
-plt.imshow(binary, cmap="gray", origin="lower")
-plt.plot(centerline_px[:,0], centerline_px[:,1], "g", label="Centerline")
-plt.plot(contour1[:,0], contour1[:,1], "r", label="Margem 1")
-plt.plot(contour2[:,0], contour2[:,1], "b", label="Margem 2")
-plt.legend(); plt.axis("equal"); plt.title("Centerline inicial (px)")
-plt.show()
-
-plt.figure()
-plt.plot(s, kappa)
-plt.xlabel("s [m]"); plt.ylabel("κ [1/m]")
-plt.title("Curvatura ao longo da trajetória")
-plt.grid(True); plt.show()
+if _plot_enabled(PLOT_MAIN):
+    plt.figure()
+    plt.plot(s, kappa)
+    plt.xlabel("s [m]"); plt.ylabel("κ [1/m]")
+    plt.title("Curvatura ao longo da trajetória")
+    plt.grid(True)
+    plt.show()
 
 # Curvatura no plano XY (linha colorida por κ)
 
@@ -448,32 +595,40 @@ plt.grid(True); plt.show()
 pts = np.column_stack((x_s, y_s))
 segments = np.stack([pts, np.roll(pts, -1, axis=0)], axis=1)
 
-fig, ax = plt.subplots()
-norm = plt.Normalize(kappa.min(), kappa.max())
-lc = LineCollection(segments, cmap='coolwarm', norm=norm)
-lc.set_array(kappa)
-lc.set_linewidth(2.0)
-ax.add_collection(lc)
-ax.plot([], [], 'k-', alpha=0.3, label='centerline')  # legenda dummy
+if _plot_enabled(PLOT_DEBUG):
+    fig, ax = plt.subplots()
+    norm = plt.Normalize(kappa.min(), kappa.max())
+    lc = LineCollection(segments, cmap='coolwarm', norm=norm)
+    lc.set_array(kappa)
+    lc.set_linewidth(2.0)
+    ax.add_collection(lc)
+    ax.plot([], [], 'k-', alpha=0.3, label='centerline')  # legenda dummy
+    ax.imshow(rgb, cmap="gray", origin="lower", extent=extent, aspect='equal')
 
-ax.set_aspect('equal', 'box')
-ax.set_xlim(x_s.min()-0.5, x_s.max()+0.5)
-ax.set_ylim(y_s.min()-0.5, y_s.max()+0.5)
-cbar = fig.colorbar(lc, ax=ax, label='Curvatura κ [1/m]')
-ax.set_title('Curvatura no plano XY')
-ax.set_xlabel('x [m]')
-ax.set_ylabel('y [m]')
-plt.show()
+    ax.set_aspect('equal', 'box')
+    ax.set_xlim(x_s.min()-0.5, x_s.max()+0.5)
+    ax.set_ylim(y_s.min()-0.5, y_s.max()+0.5)
+    fig.colorbar(lc, ax=ax, label='Curvatura κ [1/m]')
+    ax.set_title('Curvatura no plano XY')
+    ax.set_xlabel('x [m]')
+    ax.set_ylabel('y [m]')
+    plt.xlim(extent[0], extent[1])
+    plt.ylim(extent[2], extent[3])
+    plt.show()
 
 # (Opcional) versão simples com scatter
-plt.figure()
-sc = plt.scatter(x_s, y_s, c=kappa, cmap='coolwarm', s=8)
-plt.plot(x_s, y_s, 'k-', alpha=0.3, linewidth=0.5)
-plt.gca().set_aspect('equal', 'box')
-plt.colorbar(sc, label='Curvatura κ [1/m]')
-plt.title('Curvatura (scatter) no plano XY')
-plt.xlabel('x [m]'); plt.ylabel('y [m]')
-plt.show()
+if _plot_enabled(PLOT_DEBUG):
+    plt.figure(figsize=(8, 6))
+    sc = plt.scatter(x_s, y_s, c=kappa, cmap='coolwarm', s=8)
+    plt.plot(x_s, y_s, 'k-', alpha=0.3, linewidth=0.5)
+    plt.imshow(rgb, cmap="gray", origin="lower", extent=extent, aspect='equal')
+    plt.gca().set_aspect('equal', 'box')
+    plt.colorbar(sc, label='Curvature κ [1/m]')
+    plt.title('Curvature (scatter) in XY plane')
+    plt.xlabel('x [m]'); plt.ylabel('y [m]')
+    plt.xlim(extent[0], extent[1])
+    plt.ylim(extent[2], extent[3])
+    plt.show()
 
 
 psi = np.arctan2(np.gradient(centerline_px[:,1]), np.gradient(centerline_px[:,0]))
@@ -505,24 +660,39 @@ print("shape centerline_px:", centerline_px.shape)
 print("shape n_l_A:", n_l_A.shape, "n_r_A:", n_r_A.shape)
 print("shape n_l_B:", n_l_B.shape, "n_r_B:", n_r_B.shape)
 
-plt.figure()
-plt.plot(s, n_l_A_real, "r-", label="n_l (normais)")
-plt.plot(s, n_r_A_real, "b-", label="n_r (normais)")
-plt.plot(s, n_l_B_real, "r--", label="n_l (kdtree)")
-plt.plot(s, n_r_B_real, "b--", label="n_r (kdtree)")
-plt.xlabel("s [m]"); plt.ylabel("Distância [m]")
-plt.title("Margens ao longo da trajetória")
-plt.legend(); plt.grid(True); plt.show()
+if _plot_enabled(PLOT_MAIN):
+    fig, axs = plt.subplots(2, 1, figsize=(10, 8), sharex=True)
 
-plt.figure()
-plt.imshow(binary, cmap="gray", origin="lower")
-plt.plot(centerline_px[:,0], centerline_px[:,1], "k", label="centerline")
-plt.plot(centerline_px[:,0] + n_l_A*np.cos(psi+np.pi/2),
-         centerline_px[:,1] + n_l_A*np.sin(psi+np.pi/2), "r.", ms=2, label="left A")
-plt.plot(centerline_px[:,0] + n_r_A*np.cos(psi-np.pi/2),
-         centerline_px[:,1] + n_r_A*np.sin(psi-np.pi/2), "b.", ms=2, label="right A")
-plt.legend(); plt.axis("equal"); plt.title("Margens reconstruídas px (método A)")
-plt.show()
+    axs[0].plot(s, n_l_A_real, "r-", label="n_l (normais)")
+    axs[0].plot(s, n_r_A_real, "b-", label="n_r (normais)")
+    axs[0].set_ylabel("Distância [m]")
+    axs[0].set_title("Margens ao longo da trajetória (Normais)")
+    axs[0].legend()
+    axs[0].grid(True)
+
+    axs[1].plot(s, n_l_B_real, "r--", label="n_l (kdtree)")
+    axs[1].plot(s, n_r_B_real, "b--", label="n_r (kdtree)")
+    axs[1].set_xlabel("s [m]")
+    axs[1].set_ylabel("Distância [m]")
+    axs[1].set_title("Margens ao longo da trajetória (KDTree)")
+    axs[1].legend()
+    axs[1].grid(True)
+
+    plt.tight_layout()
+    plt.show()
+
+if _plot_enabled(PLOT_DEBUG):
+    plt.figure()
+    plt.imshow(rgb, cmap="gray", origin="lower")
+    plt.plot(centerline_px[:,0], centerline_px[:,1], "k", label="centerline")
+    plt.plot(centerline_px[:,0] + n_l_A*np.cos(psi+np.pi/2),
+             centerline_px[:,1] + n_l_A*np.sin(psi+np.pi/2), "r.", ms=2, label="left A")
+    plt.plot(centerline_px[:,0] + n_r_A*np.cos(psi-np.pi/2),
+             centerline_px[:,1] + n_r_A*np.sin(psi-np.pi/2), "b.", ms=2, label="right A")
+    plt.legend()
+    plt.axis("equal")
+    plt.title("Margens reconstruídas px (método A)")
+    plt.show()
 
 # reconstruir margens em 2D
 x_l_A = x_s + n_l_A_real*np.cos(psi+np.pi/2)
@@ -530,12 +700,22 @@ y_l_A = y_s + n_l_A_real*np.sin(psi+np.pi/2)
 x_r_A = x_s + n_r_A_real*np.cos(psi-np.pi/2)
 y_r_A = y_s + n_r_A_real*np.sin(psi-np.pi/2)
 
-plt.figure()
-plt.plot(x_s, y_s, "k", label="centerline")
-plt.plot(x_l_A, y_l_A, "r.", ms=2, label="left A")
-plt.plot(x_r_A, y_r_A, "b.", ms=2, label="right A")
-plt.legend(); plt.axis("equal"); plt.title("Margens reconstruídas (método A)")
-plt.show()
+if _plot_enabled(PLOT_MAIN):
+    plt.figure()
+    plt.imshow(rgb, cmap="gray", origin="lower", extent=extent, aspect='equal')
+    #plt.scatter(x_s, y_s, c="k", s=2, label="Centerline")
+    plt.scatter(x_l_A, y_l_A, c="r", s=5, label="Left Boundary")
+    plt.scatter(x_r_A, y_r_A, c="b", s=5, label="Right Boundary")
+    sc = plt.scatter(x_s, y_s, c=kappa, cmap='turbo', s=10, label="Centerline")
+    plt.legend()
+    plt.colorbar(sc, label='Curvature κ [1/m]')
+    plt.gca().set_aspect('equal', 'box')
+    plt.title("Margens reconstruídas e Curvatura (método A)")
+    plt.xlim(extent[0], extent[1])
+    plt.ylim(extent[2], extent[3])
+    plt.xlabel("x [m]")
+    plt.ylabel("y [m]")
+    plt.show()
 
 # método B
 
@@ -544,20 +724,31 @@ y_l_B = y_s + n_l_B_real*np.sin(psi+np.pi/2)
 x_r_B = x_s + n_r_B_real*np.cos(psi-np.pi/2)
 y_r_B = y_s + n_r_B_real*np.sin(psi-np.pi/2)
 
-plt.figure()
-plt.plot(x_s, y_s, "k", label="centerline")
-plt.plot(x_l_B, y_l_B, "r.", ms=2, label="left B")
-plt.plot(x_r_B, y_r_B, "b.", ms=2, label="right B")
-plt.legend(); plt.axis("equal"); plt.title("Margens reconstruídas (método B)")
-plt.show()
+if _plot_enabled(PLOT_DEBUG):
+    plt.figure()
+    plt.plot(x_s, y_s, "k", label="centerline")
+    plt.plot(x_l_B, y_l_B, "r.", ms=2, label="left B")
+    plt.plot(x_r_B, y_r_B, "b.", ms=2, label="right B")
+    plt.legend()
+    plt.axis("equal")
+    plt.title("Margens reconstruídas (método B)")
+    plt.xlim(extent[0], extent[1])
+    plt.ylim(extent[2], extent[3])
+    plt.show()
 
-plt.figure(figsize=(10, 6))
-plt.imshow(binary, cmap="gray", origin="lower")
-plt.plot(centerline_px[:,0], centerline_px[:,1], "g", label="Centerline")
-plt.plot((x_l_B - origin[0])/resolution, (y_l_B - origin[1])/resolution, "r.", ms=2, label="left B")
-plt.plot((x_r_B - origin[0])/resolution, (y_r_B - origin[1])/resolution, "b.", ms=2, label="right B")
-plt.legend(); plt.axis("equal"); plt.title("Centerline + margens (método B)")
-plt.show()
+if _plot_enabled(PLOT_MAIN):
+    plt.figure(figsize=(10, 6))
+    plt.imshow(rgb, cmap="gray", origin="lower", extent=extent, aspect='equal')
+    plt.plot(x_l_B , y_l_B , "r.", ms=2, label="left B")
+    plt.plot(x_r_B , y_r_B , "b.", ms=2, label="right B")
+    sc = plt.scatter(x_s, y_s, c=kappa, cmap='turbo', s=10, label="Centerline")
+    plt.legend()
+    plt.colorbar(sc, label='Curvature κ [1/m]')
+    plt.gca().set_aspect('equal', 'box')
+    plt.title("Centerline + margens (método B)")
+    plt.xlim(extent[0], extent[1])
+    plt.ylim(extent[2], extent[3])
+    plt.show()
 
 
 # export

@@ -428,7 +428,7 @@ def main():
 
     traj_default = "./traj/centerline_0.10_test_map_v2.csv"
     #traj_default ='traj/centerline_map_2025-09-09_10-52-29.csv'
-    traj_default ='traj/centerline_0.05_map_2025-10-11_12-41-37.csv'
+    #traj_default ='traj/centerline_0.05_map_2025-10-11_12-41-37.csv'
     #traj_default = Path("./traj/track_data.csv")
 
     # Exemplo: [s, n, mu, vx, r, delta] 27
