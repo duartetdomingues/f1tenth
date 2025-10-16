@@ -18,6 +18,21 @@ MPCNode::MPCNode() : Node("mpc_node"),
     this->declare_parameter<std::string>("frame_id", "odom");
     this->declare_parameter<std::string>("pose_topic", "/tracked_pose");
     this->declare_parameter<double>("v_x_ref", 1.5);
+    // Declare cost weights as parameters
+    this->declare_parameter<double>("cost_weights.w_n", 10.0);
+    this->declare_parameter<double>("cost_weights.w_u", 5.0);
+    this->declare_parameter<double>("cost_weights.w_vx", 5.0);
+    this->declare_parameter<double>("cost_weights.w_r", 5.0);
+    this->declare_parameter<double>("cost_weights.w_dsteering", 1.0);
+    this->declare_parameter<double>("cost_weights.w_dvelocity", 1.0);
+
+    // Retrieve cost weights
+    double w_n = this->get_parameter("cost_weights.w_n").as_double();
+    double w_u = this->get_parameter("cost_weights.w_u").as_double();
+    double w_vx = this->get_parameter("cost_weights.w_vx").as_double();
+    double w_r = this->get_parameter("cost_weights.w_r").as_double();
+    double w_dsteering = this->get_parameter("cost_weights.w_dsteering").as_double();
+    double w_dvelocity = this->get_parameter("cost_weights.w_dvelocity").as_double();
 
     // Retrieve parameters
     std::string odom_topic = this->get_parameter("odom_topic").as_string();
@@ -76,11 +91,15 @@ MPCNode::MPCNode() : Node("mpc_node"),
     {
         RCLCPP_ERROR(this->get_logger(), "Failed to load reference trajectory.");
         rclcpp::shutdown();
+        return;
     }
-    
+
     publish_reference_trajectory();
 
-    kd_tree = prepare_kd_tree(reference_trajectory_.x, reference_trajectory_.y);
+    coordinate_transform_.set_reference_trajectory(reference_trajectory_.s,
+                                                   reference_trajectory_.x,
+                                                   reference_trajectory_.y,
+                                                   reference_trajectory_.psi);
 
     // Create ACADOS solver capsule
     if (mpc_model_acados_create(capsule) != 0)
@@ -98,7 +117,10 @@ MPCNode::MPCNode() : Node("mpc_node"),
     nlp_opts_ = mpc_model_acados_get_nlp_opts(capsule);
 
     // Set weights for the cost function
-    /* std::vector<double> cost_weights = {0.0, 0.0, 1.5, 0.0, 0.0, 0.0}; // Example weights for n , u, vx, r, d_steering, d_velocity
+    std::vector<double> cost_weights = {w_n, w_u, w_vx, w_r, w_dsteering, w_dvelocity};
+    RCLCPP_INFO(this->get_logger(), "Cost weights: n=%.2f, u=%.2f, vx=%.2f, r=%.2f, dsteering=%.2f, dvelocity=%.2f",
+                cost_weights[0], cost_weights[1], cost_weights[2],
+                cost_weights[3], cost_weights[4], cost_weights[5]);
     Eigen::MatrixXd W = Eigen::MatrixXd::Zero(6, 6);
     W.diagonal() << cost_weights[0], cost_weights[1], cost_weights[2], cost_weights[3], cost_weights[4], cost_weights[5];
     for (size_t k = 0; k < MPC_MODEL_N; k++)
@@ -107,19 +129,18 @@ MPCNode::MPCNode() : Node("mpc_node"),
     }
     // Set final cost weights
     Eigen::MatrixXd Wf = W.topLeftCorner(4, 4); // Only consider n , u, vx, r for final cost
-    ocp_nlp_cost_model_set(nlp_config_, nlp_dims_, nlp_in_, MPC_MODEL_N, "W", Wf.data()); */
+    ocp_nlp_cost_model_set(nlp_config_, nlp_dims_, nlp_in_, MPC_MODEL_N, "W", Wf.data());
 
     std::vector<double> y_ref(6, 0.0); // [n, u, vx, r, d_steering, d_velocity]
-    y_ref[2] = v_x_ref;      // Reference velocity
+    y_ref[2] = v_x_ref;                // Reference velocity
     for (size_t k = 0; k < MPC_MODEL_N; k++)
     {
         ocp_nlp_cost_model_set(nlp_config_, nlp_dims_, nlp_in_, k, "y_ref", y_ref.data());
     }
-    
+
     // Set final cost reference
     std::vector<double> y_ref_e(y_ref.begin(), y_ref.end() - 2);
     ocp_nlp_cost_model_set(nlp_config_, nlp_dims_, nlp_in_, MPC_MODEL_N, "y_ref", y_ref_e.data());
-    
 
     // nlp_config_ = ocp_nlp_config_create(nlp_dims_);
     // nlp_dims_ = ocp_nlp_dims_create(nlp_config_);
@@ -130,13 +151,6 @@ MPCNode::MPCNode() : Node("mpc_node"),
 
     // precompute
     // ocp_nlp_precompute(nlp_solver_, nlp_in_, nlp_out_);
-
-    // Define weights and safety margin
-    double weight_ds = 15.0;
-    double weight_beta = 0.15;
-    double weight_dalpha = 1.0;
-    double weight_dthrottle = 1.0;
-    double safety_margin = 0.1; // 10 cm
 
     // Parameter vector
     /* double p[7] = {weight_ds, weight_beta, weight_dalpha, weight_dthrottle, 1.0, 1.0, safety_margin};
@@ -171,7 +185,6 @@ MPCNode::MPCNode() : Node("mpc_node"),
 
 MPCNode::~MPCNode()
 {
-    delete kd_tree;
     mpc_model_acados_free(capsule);
 }
 
@@ -198,20 +211,19 @@ void MPCNode::initMPC()
             current_state_.r, current_state_.delta;
         apply_warm_start(x0);
 
-        ackermann_msgs::msg::AckermannDriveStamped control_vesc_msg;
+        /* ackermann_msgs::msg::AckermannDriveStamped control_vesc_msg;
         control_vesc_msg.header.stamp = this->get_clock()->now();
         control_vesc_msg.header.frame_id = "base_link";
-        control_vesc_msg.drive.steering_angle = -current_state_.delta * steering_angle_to_servo_gain;
+        control_vesc_msg.drive.steering_angle = current_state_.delta * steering_angle_to_servo_gain;
         control_vesc_msg.drive.speed = 1.0;
         // control_vesc_msg.drive.acceleration = state_output[7];
 
         // Publish control output
-        control_vesc_pub_->publish(control_vesc_msg);
+        control_vesc_pub_->publish(control_vesc_msg); */
 
-        //Get frequency
+        // Get frequency
         double Ts;
         ocp_nlp_in_get(nlp_config_, nlp_dims_, nlp_in_, 0, "Ts", &Ts);
-        
 
         frequency = 1.0 / Ts;
         RCLCPP_INFO(this->get_logger(), "MPC sampling time: %.3f seconds (%.1f Hz)", Ts, frequency);
@@ -265,13 +277,13 @@ void MPCNode::solveMPC()
                             current_state_vector_[5]};
     state_pub_->publish(state_array_msg);
 
-    //RCLCPP_INFO(this->get_logger(), "Current state: s=%.3f, n=%.3f, u=%.3f, vx=%.3f, r=%.3f, delta=%.3f",
-    //            current_state_.s, current_state_.n, current_state_.u, current_state_.vx,
-    //            current_state_.r, current_state_.delta);
+    // RCLCPP_INFO(this->get_logger(), "Current state: s=%.3f, n=%.3f, u=%.3f, vx=%.3f, r=%.3f, delta=%.3f",
+    //             current_state_.s, current_state_.n, current_state_.u, current_state_.vx,
+    //             current_state_.r, current_state_.delta);
 
     // Solve the MPC problem
-    // int status = ocp_nlp_solve(nlp_solver_, nlp_in_, nlp_out_);
-    int status = mpc_model_acados_solve(capsule);
+    int status = ocp_nlp_solve(nlp_solver_, nlp_in_, nlp_out_);
+    // int status = mpc_model_acados_solve(capsule);
     //  mpc_model_acados_print_stats(capsule);
     /* std::vector<double> xtraj((MPC_MODEL_N + 1) * 6);
     std::vector<double> utraj(MPC_MODEL_N * 2);
@@ -286,8 +298,8 @@ void MPCNode::solveMPC()
     d_print_exp_tran_mat( 2, MPC_MODEL_N, utraj.data(), 2 ); */
 
     // Get control output
-    std::array<double, 6> state_output;
-    std::array<double, 2> control_output;
+    std::array<double, 6> state_output_1;
+    std::array<double, 2> control_output_1;
     double solved_time;
     double steering_cmd, speed_cmd;
 
@@ -300,15 +312,21 @@ void MPCNode::solveMPC()
     }
     else
     {
-        //RCLCPP_INFO(this->get_logger(), "\033[1;32mACADOS solver succeeded with status %d\033[0m", status);
+        // RCLCPP_INFO(this->get_logger(), "\033[1;32mACADOS solver succeeded with status %d\033[0m", status);
 
-        ocp_nlp_out_get(nlp_config_, nlp_dims_, nlp_out_, 1, "x", state_output.data()); // Retrieve control output
-        ocp_nlp_out_get(nlp_config_, nlp_dims_, nlp_out_, 1, "u", control_output.data());
-        
-        steering_cmd = control_output[0];
-        speed_cmd = state_output[3];
+        double steering_delay= 0.05; // 500 ms delay
+        int steering_idx = int(steering_delay * frequency);
+        std::array<double, 6> state_output_str_idx;
 
-        //RCLCPP_INFO(this->get_logger(), "Controls: delta=%.3f, vx=%.3f", state_output[5], state_output[3]);
+        ocp_nlp_out_get(nlp_config_, nlp_dims_, nlp_out_, 1, "x", state_output_1.data()); // Retrieve control output
+        ocp_nlp_out_get(nlp_config_, nlp_dims_, nlp_out_, 1, "u", control_output_1.data());
+
+        ocp_nlp_out_get(nlp_config_, nlp_dims_, nlp_out_, steering_idx, "x", state_output_str_idx.data()); // Retrieve state at steering delay index
+
+        steering_cmd = state_output_1[5];
+        speed_cmd = state_output_1[3];
+
+        // RCLCPP_INFO(this->get_logger(), "Controls: delta=%.3f, vx=%.3f", state_output[5], state_output[3]);
 
         ocp_nlp_get(nlp_solver_, "time_tot", &solved_time);
     }
@@ -317,13 +335,13 @@ void MPCNode::solveMPC()
     solved_time_msg.data = solved_time;
     solved_time_pub_->publish(solved_time_msg);
 
-    //RCLCPP_INFO(this->get_logger(), "Solved time: %.2f milliseconds", solved_time * 1000);
+    // RCLCPP_INFO(this->get_logger(), "Solved time: %.2f milliseconds", solved_time * 1000);
 
     ackermann_msgs::msg::AckermannDriveStamped control_vesc_msg;
     control_vesc_msg.header.stamp = this->get_clock()->now();
     control_vesc_msg.header.frame_id = "base_link";
-    control_vesc_msg.drive.steering_angle = control_output[0] * steering_angle_to_servo_gain;
-    control_vesc_msg.drive.speed = state_output[3];
+    control_vesc_msg.drive.steering_angle = steering_cmd * steering_angle_to_servo_gain;
+    control_vesc_msg.drive.speed = speed_cmd;
     // control_vesc_msg.drive.acceleration = state_output[7];
 
     // Publish control output
@@ -331,7 +349,7 @@ void MPCNode::solveMPC()
 
     // Publish control array
     std_msgs::msg::Float64MultiArray control_array_msg;
-    control_array_msg.data = {control_output[0], state_output[3]};
+    control_array_msg.data = {steering_cmd, speed_cmd};
     control_pub_->publish(control_array_msg);
 
     // Publish control vector
@@ -370,26 +388,35 @@ void MPCNode::solveMPC()
         state_vector_pub_[i]->publish(state_vector_msgs[i]);
     }
 
-    // Publish simulation trajectory
     nav_msgs::msg::Path simulation_path;
     for (int ii = 0; ii <= MPC_MODEL_N; ii++)
     {
         geometry_msgs::msg::PoseStamped pose;
         pose.header.stamp = this->get_clock()->now();
         pose.header.frame_id = frame_id_;
-        double x_s, y_s, psi_s;
-        double x, y, psi;
-        local_to_global_pose(reference_trajectory_.s, reference_trajectory_.x,
-                             reference_trajectory_.y, reference_trajectory_.psi,
-                             predict_vector_x[0][ii], predict_vector_x[1][ii], predict_vector_x[2][ii],
-                             x, y, psi, x_s, y_s, psi_s);
+
+        double x = 0.0;
+        double y = 0.0;
+        double psi_pred = 0.0;
+        double x_s = 0.0;
+        double y_s = 0.0;
+        double psi_s = 0.0;
+
+        coordinate_transform_.local_to_global_pose(
+            predict_vector_x[0][ii], // s
+            predict_vector_x[1][ii], // n
+            predict_vector_x[2][ii], // u
+            x, y, psi_pred,
+            x_s, y_s, psi_s);
+
         pose.pose.position.x = x;
         pose.pose.position.y = y;
         tf2::Quaternion q;
-        q.setRPY(0, 0, psi);
+        q.setRPY(0, 0, psi_pred);
         pose.pose.orientation = tf2::toMsg(q);
         simulation_path.poses.push_back(pose);
     }
+
     simulation_path.header.stamp = this->get_clock()->now();
     simulation_path.header.frame_id = frame_id_;
     simulation_trajectory_pub_->publish(simulation_path);
@@ -578,7 +605,7 @@ bool MPCNode::load_reference_trajectory_from_csv(const std::string &filename)
             double dy = reference_trajectory_.y[(i + 1) % N] - reference_trajectory_.y[i];
             reference_trajectory_.psi[i] = std::atan2(dy, dx);
         }
-    }   
+    }
 
     file.close();
     RCLCPP_INFO(this->get_logger(), "Loaded reference trajectory %s.", filename.c_str());
@@ -601,7 +628,7 @@ void MPCNode::publish_reference_trajectory()
         pose.pose.orientation = tf2::toMsg(q);
         ref_path.poses.push_back(pose);
     }
-    reference_trajectory_pub_->publish(ref_path); 
+    reference_trajectory_pub_->publish(ref_path);
 }
 
 void MPCNode::OdomCallback(const nav_msgs::msg::Odometry::SharedPtr msg)
@@ -661,15 +688,45 @@ void MPCNode::ProcessPose(const geometry_msgs::msg::Pose &msg)
         msg.orientation.w);
     double psi = tf2::getYaw(q);
 
-    double X_s, Y_s, psi_s;
+    control_utils::FrenetResult frenet;
 
-    global_to_local_pose(kd_tree->index, reference_trajectory_.s, reference_trajectory_.x,
-                         reference_trajectory_.y, reference_trajectory_.psi,
-                         x, y, psi,
-                         current_state_.s, current_state_.n, current_state_.u,
-                         X_s, Y_s, psi_s);
+    frenet = coordinate_transform_.global_to_local_pose(x, y, psi);
 
-    
+    const double track_length = coordinate_transform_.track_length();
+    const double s_local = frenet.s;
+
+    if (track_length > 0.0)
+    {
+        if (s_local < prev_s_local_ - 0.9 * track_length)
+        {
+            lap_count_ += 1;
+            const double lap_time_ms = (this->get_clock()->now() - start_lap_time_).seconds() * 1000.0;
+            start_lap_time_ = this->get_clock()->now();
+
+            lap_time_pub_->publish(std_msgs::msg::Float64().set__data(lap_time_ms));
+            lap_count_pub_->publish(std_msgs::msg::Int32().set__data(lap_count_));
+        }
+        else if (s_local > prev_s_local_ + 0.9 * track_length)
+        {
+            lap_count_ -= 1;
+        }
+
+        current_state_.s = lap_count_ * track_length + s_local;
+        prev_s_local_ = s_local;
+    }
+    else
+    {
+        current_state_.s = s_local;
+        prev_s_local_ = s_local;
+    }
+
+    current_state_.n = frenet.n;
+    current_state_.u = frenet.u;
+
+    const double X_s = frenet.x_ref;
+    const double Y_s = frenet.y_ref;
+    const double psi_s = frenet.theta_ref;
+
     geometry_msgs::msg::PoseStamped pose;
     pose.header.stamp = this->get_clock()->now();
     pose.header.frame_id = "map";
@@ -680,23 +737,25 @@ void MPCNode::ProcessPose(const geometry_msgs::msg::Pose &msg)
     pose.pose.orientation = tf2::toMsg(q_s);
     pose_ref_pub_->publish(pose);
 
-    double x_mpc, y_mpc, psi_mpc;
-    double X_s2, Y_s2, psi_s2;
+    double x_mpc = 0.0;
+    double y_mpc = 0.0;
+    double psi_mpc = 0.0;
+    double X_s2 = 0.0;
+    double Y_s2 = 0.0;
+    double psi_s2 = 0.0;
 
-    local_to_global_pose(reference_trajectory_.s, reference_trajectory_.x,
-                         reference_trajectory_.y, reference_trajectory_.psi,
-                         current_state_.s, current_state_.n, current_state_.u,
-                         x_mpc, y_mpc, psi_mpc,
-                         X_s2, Y_s2, psi_s2);
+    coordinate_transform_.local_to_global_pose(current_state_.s, current_state_.n, current_state_.u,
+                                               x_mpc, y_mpc, psi_mpc,
+                                               X_s2, Y_s2, psi_s2);
 
-   /*  RCLCPP_INFO(this->get_logger(), "Current pose: x=%.3f, y=%.3f, psi=%.3f", x, y, psi);
-    RCLCPP_INFO(this->get_logger(), "MPC pose: x=%.3f, y=%.3f, psi=%.3f", x_mpc, y_mpc, psi_mpc);
-    RCLCPP_INFO(this->get_logger(), "Error: dx=%.3f, dy=%.3f, dpsi=%.3f", x - x_mpc, y - y_mpc, psi - psi_mpc);
+    /*  RCLCPP_INFO(this->get_logger(), "Current pose: x=%.3f, y=%.3f, psi=%.3f", x, y, psi);
+     RCLCPP_INFO(this->get_logger(), "MPC pose: x=%.3f, y=%.3f, psi=%.3f", x_mpc, y_mpc, psi_mpc);
+     RCLCPP_INFO(this->get_logger(), "Error: dx=%.3f, dy=%.3f, dpsi=%.3f", x - x_mpc, y - y_mpc, psi - psi_mpc);
 
-    // Refs
-    RCLCPP_INFO(this->get_logger(), "Current state: x=%.3f, y=%.3f, psi=%.3f", X_s, Y_s, psi_s);
-    RCLCPP_INFO(this->get_logger(), "MPC state: x=%.3f, y=%.3f, psi=%.3f", X_s2, Y_s2, psi_s2);
-    RCLCPP_INFO(this->get_logger(), "State error: dx=%.3f, dy=%.3f, dpsi=%.3f", X_s - X_s2, Y_s - Y_s2, psi_s - psi_s2); */
+     // Refs
+     RCLCPP_INFO(this->get_logger(), "Current state: x=%.3f, y=%.3f, psi=%.3f", X_s, Y_s, psi_s);
+     RCLCPP_INFO(this->get_logger(), "MPC state: x=%.3f, y=%.3f, psi=%.3f", X_s2, Y_s2, psi_s2);
+     RCLCPP_INFO(this->get_logger(), "State error: dx=%.3f, dy=%.3f, dpsi=%.3f", X_s - X_s2, Y_s - Y_s2, psi_s - psi_s2); */
 
     pose.header.stamp = this->get_clock()->now();
     pose.header.frame_id = "map";
@@ -706,9 +765,6 @@ void MPCNode::ProcessPose(const geometry_msgs::msg::Pose &msg)
     q_mpc.setRPY(0.0, 0.0, psi_mpc);
     pose.pose.orientation = tf2::toMsg(q_mpc);
     pose_mpc_pub_->publish(pose);
-
-
-    
 }
 
 void MPCNode::VescServoCallback(const std_msgs::msg::Float64::SharedPtr msg)

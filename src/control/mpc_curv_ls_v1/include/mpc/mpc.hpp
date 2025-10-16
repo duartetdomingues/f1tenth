@@ -24,7 +24,7 @@
 #include <tf2_ros/buffer.h>
 #include <tf2_ros/transform_listener.h>
 
-#include "mpc/global_to_local.hpp"
+#include "utils/coordinate_transform.hpp"
 
 #include "vesc_msgs/msg/vesc_state_stamped.hpp"
 
@@ -68,10 +68,6 @@ private:
     void initMPC();
     void solveMPC();
     void set_trajectory_step();
-    void global_to_local_pose(my_kd_tree_t *index, const std::vector<double> &s_traj,
-                          const std::vector<double> &x_traj, const std::vector<double> &y_traj,
-                          const std::vector<double> &theta_traj, double x, double y, double psi,
-                          double &s_val, double &n_val, double &u_val, double &X_s, double &Y_s, double &theta_s);
 
     rclcpp::Publisher<ackermann_msgs::msg::AckermannDriveStamped>::SharedPtr control_vesc_pub_;
     rclcpp::Publisher<std_msgs::msg::Float64>::SharedPtr solved_time_pub_;
@@ -117,7 +113,7 @@ private:
     int n_x ; // Number of states
     int n_u; // Number of controls
 
-    KDTreeWithCloud *kd_tree;
+    control_utils::CoordinateTransformer coordinate_transform_;
 
     int lap_count_ = 0;
     rclcpp::Time start_lap_time_= this->get_clock()->now(); 

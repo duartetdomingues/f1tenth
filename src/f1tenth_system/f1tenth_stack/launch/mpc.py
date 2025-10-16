@@ -20,48 +20,63 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-from launch import LaunchDescription
-from launch_ros.actions import Node
-from launch.substitutions import Command
-from launch.substitutions import LaunchConfiguration
-from launch.actions import DeclareLaunchArgument
-from launch.actions import IncludeLaunchDescription
-from launch_xml.launch_description_sources import XMLLaunchDescriptionSource
-from ament_index_python.packages import get_package_share_directory
 import os
 
+from launch import LaunchDescription
+from launch.actions import DeclareLaunchArgument
+from launch.actions import OpaqueFunction
+from launch.substitutions import LaunchConfiguration
+from launch_ros.actions import Node
+from ament_index_python.packages import get_package_share_directory
+
+
+MPC_TARGETS = {
+    'mpc': ('mpc', 'mpc'),
+    'mpc_curv_ls_v1': ('mpc_curv_ls_v1', 'mpc_curv_ls_v1'),
+    'mpc_curv_ls_v2': ('mpc_curv_ls_v2', 'mpc_curv_ls_v2'),
+}
+
+
+def launch_setup(context, *args, **kwargs):
+    variant = LaunchConfiguration('MPC').perform(context)
+
+    if variant not in MPC_TARGETS:
+        available = ', '.join(sorted(MPC_TARGETS.keys()))
+        raise RuntimeError(f"Unsupported MPC variant '{variant}'. Available options: {available}")
+
+    package, executable = MPC_TARGETS[variant]
+
+    node = Node(
+        package=package,
+        executable=executable,
+        name='mpc',
+        parameters=[LaunchConfiguration('mpc_config')]
+    )
+
+    return [node]
+
+
 def generate_launch_description():
-    
     mpc_config = os.path.join(
         get_package_share_directory('f1tenth_stack'),
         'config',
         'mpc.yaml'
     )
-    print("get_package_share_directory(f1tenth_stack): ", get_package_share_directory('f1tenth_stack'))
 
-
-   
-
-    mpc_la = DeclareLaunchArgument(
+    mpc_config_arg = DeclareLaunchArgument(
         'mpc_config',
         default_value=mpc_config,
-        description='Descriptions for mpc configs'
+        description='Descrição para configuração do MPC'
     )
 
-    ld = LaunchDescription([mpc_la])
-
-    
-
-    mpc_node = Node(
-        package='mpc',
-        executable='mpc',
-        name='mpc',
-        parameters=[LaunchConfiguration('mpc_config')]
+    variant_arg = DeclareLaunchArgument(
+        'MPC',
+        default_value='mpc_curv_ls_v1',
+        description='Selecione qual pacote/executável MPC lançar'
     )
 
-    ld.add_action(mpc_node)
-
-    
-
-
-    return ld
+    return LaunchDescription([
+        mpc_config_arg,
+        variant_arg,
+        OpaqueFunction(function=launch_setup),
+    ])

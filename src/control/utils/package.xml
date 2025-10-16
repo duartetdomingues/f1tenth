@@ -1,0 +1,14 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>control_utils</name>
+  <version>0.1.0</version>
+  <description>Funções utilitárias para conversões de coordenadas (global/local) usadas pelos MPCs.</description>
+
+  <maintainer email="teu_email@exemplo.com">Teu Nome</maintainer>
+  <license>MIT</license>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>
