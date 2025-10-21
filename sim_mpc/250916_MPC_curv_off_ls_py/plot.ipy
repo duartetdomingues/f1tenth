@@ -1,0 +1,3 @@
+import numpy as np
+
+data = np.load('your_file.npz')

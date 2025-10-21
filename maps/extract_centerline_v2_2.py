@@ -11,12 +11,13 @@ from scipy.spatial import cKDTree
 ##########################################
 # CONFIGURAÇÕES
 ##########################################
-map_files = "/home/duarte/Desktop/f1tenth/maps/map_2025-10-11_19-15-42/map_output"
+#map_files = "/home/duarte/Desktop/f1tenth/maps/map_2025-10-11_19-15-42/map_output"
+map_files = "/home/duarte/Desktop/f1tenth/maps/test_map/map_output"
 traj_dir = "traj"
 map_path = map_files + ".pgm"
 yaml_path =  map_files + ".yaml"
 direction = "counter-clockwise"  # ou "clockwise" ou "counter-clockwise"
-amostragem = 0.1  # espaçamento em metros
+amostragem = 0.01  # espaçamento em metros
 plot = 1 # 0 = none, 1 = some, 2 = all debug plots
 
 PLOT_NONE = 0
@@ -344,89 +345,162 @@ def smooth_centerline(centerline_px, origin, resolution, amostragem):
 def bounds_by_normals(centerline, contour_left, contour_right, psi):
     contour_line_left = LineString(contour_left)
     contour_line_right = LineString(contour_right)
+    # KD-trees para fallback robusto por lado
+    tree_left = cKDTree(contour_left)
+    tree_right = cKDTree(contour_right)
+
+    # Comprimentos para varrer: base (em função da resolução) e máximo (em função da extensão do mapa)
+    all_pts = np.vstack([contour_left, contour_right])
+    max_extent = float(max(all_pts[:, 0].ptp(), all_pts[:, 1].ptp()))
+    base_len = 10 / resolution
+    max_len = max(base_len, 1.5 * max_extent)
+
+    def nearest_dist(intersection, pt):
+        if intersection.is_empty:
+            return None
+        if intersection.geom_type == 'Point':
+            return float(np.hypot(intersection.x - pt[0], intersection.y - pt[1]))
+        if intersection.geom_type == 'MultiPoint':
+            return float(min(np.hypot(p.x - pt[0], p.y - pt[1]) for p in intersection.geoms))
+        return None
+
+    def rotate(vec, angle):
+        c, s = np.cos(angle), np.sin(angle)
+        return np.array([c * vec[0] - s * vec[1], s * vec[0] + c * vec[1]])
+
+    def ray_intersection_distance(contour_line, pt, direction, length):
+        line = LineString([pt, pt + length * direction])
+        return nearest_dist(contour_line.intersection(line), pt)
+
+    def fan_search_projected(contour_line, pt, base_dir, base_length, fan_rad=np.deg2rad(85), steps=14, max_length=None):
+        # Tenta 0°, ±ang até fan_rad com comprimentos crescentes; projeta o resultado no eixo da base (cos(ang))
+        lengths = [base_length]
+        if max_length is not None and max_length > base_length:
+            mid_len = 0.5 * (base_length + max_length)
+            lengths += [mid_len, max_length]
+        for L in lengths:
+            # primeiro a direção base
+            d0 = ray_intersection_distance(contour_line, pt, base_dir, L)
+            if d0 is not None:
+                return d0
+            for k in range(1, steps + 1):
+                ang = fan_rad * k / steps
+                for sign in (1, -1):
+                    dir_rot = rotate(base_dir, sign * ang)
+                    d = ray_intersection_distance(contour_line, pt, dir_rot, L)
+                    if d is not None:
+                        # projetar no eixo da normal original
+                        return d * np.cos(ang)
+        return None
+
+    def kd_projected_distance(tree, contour_arr, pt, base_dir, k=8):
+        # Procura o vizinho cuja projeção na base_dir seja positiva e mínima
+        k = int(min(k, len(contour_arr)))
+        dists, idxs = tree.query(pt, k=k)
+        idxs = np.atleast_1d(idxs)
+        best = None
+        for idx in idxs:
+            v = contour_arr[idx] - pt
+            proj = float(np.dot(v, base_dir))
+            if proj > 0:
+                if best is None or proj < best:
+                    best = proj
+        if best is not None:
+            return best
+        # Caso extremo: não achou projeção positiva; usa a projeção absoluta do mais próximo
+        first_idx = int(idxs[0])
+        v = contour_arr[first_idx] - pt
+        return abs(float(np.dot(v, base_dir)))
+
     n_l, n_r = [], []
+    left_used_kd, right_used_kd = [], []
     debug_plots = _plot_enabled(PLOT_DEBUG)
+
     for i, pt in enumerate(centerline):
         pt = np.array(pt)
-        normal_left = np.array([np.cos(psi[i] + np.pi/2), np.sin(psi[i] + np.pi/2)])
+        normal_left = np.array([np.cos(psi[i] + np.pi / 2), np.sin(psi[i] + np.pi / 2)])
         normal_right = -normal_left
 
-        line_len = 10/resolution
-        line_left = LineString([pt, pt + line_len*normal_left])
-        line_right = LineString([pt, pt + line_len*normal_right])
+        # 1) tenta intersecção na normal com varredura angular e comprimento adaptativo
+        d_left = fan_search_projected(contour_line_left, pt, normal_left, base_len, max_length=max_len)
+        d_right = fan_search_projected(contour_line_right, pt, normal_right, base_len, max_length=max_len)
 
-        def nearest_dist(intersection, pt):
-            if intersection.is_empty: return None
-            if intersection.geom_type == 'Point':
-                return np.linalg.norm([intersection.x - pt[0], intersection.y - pt[1]])
-            elif intersection.geom_type == 'MultiPoint':
-                return min(np.linalg.norm([p.x-pt[0], p.y-pt[1]]) for p in intersection.geoms)
-            return None
+        # 2) fallback KDTree por lado (projeção na normal)
+        used_kd_left = False
+        used_kd_right = False
+        if d_left is None:
+            d_left = kd_projected_distance(tree_left, contour_left, pt, normal_left)
+            used_kd_left = True
+        if d_right is None:
+            d_right = kd_projected_distance(tree_right, contour_right, pt, normal_right)
+            used_kd_right = True
 
-        d_left = nearest_dist(contour_line_left.intersection(line_left), pt)
-        d_right = nearest_dist(contour_line_right.intersection(line_right), pt)
-        
-        if d_left is None or d_right is None:
-            if debug_plots:
-                plt.figure()
-                plt.plot(contour_left[:, 0], contour_left[:, 1], "r-", label="Contorno Esquerdo")
-                plt.plot(contour_right[:, 0], contour_right[:, 1], "b-", label="Contorno Direito")
-                plt.plot([pt[0], pt[0] + line_len * normal_left[0]], 
-                    [pt[1], pt[1] + line_len * normal_left[1]], "g--", label="Normal Esquerda")
-                plt.plot([pt[0], pt[0] + line_len * normal_right[0]], 
-                    [pt[1], pt[1] + line_len * normal_right[1]], "y--", label="Normal Direita")
-                plt.scatter(pt[0], pt[1], c="k", label="Ponto Centerline")
-                plt.legend()
-                plt.title("Interseção ausente para d_left ou d_right")
-                plt.axis("equal")
-                plt.show()
-            else:                    
-                print("⚠️ Aviso2: interseção ausente para d_left ou d_right — usando último valor válido no ponto", i)
-        if debug_plots and i == 300:
+        if debug_plots and (d_left is None or d_right is None):
+            line_len_dbg = base_len
             plt.figure()
             plt.plot(contour_left[:, 0], contour_left[:, 1], "r-", label="Contorno Esquerdo")
             plt.plot(contour_right[:, 0], contour_right[:, 1], "b-", label="Contorno Direito")
-            plt.plot([pt[0], pt[0] + line_len * normal_left[0]], 
-                [pt[1], pt[1] + line_len * normal_left[1]], "g--", label="Normal Esquerda")
-            plt.plot([pt[0], pt[0] + line_len * normal_right[0]], 
-                [pt[1], pt[1] + line_len * normal_right[1]], "y--", label="Normal Direita")
-            if d_left is not None:
-                plt.scatter(pt[0] + d_left * normal_left[0], pt[1] + d_left * normal_left[1], c="g", label="Interseção Esquerda")
-                plt.scatter(pt[0] + d_left * np.cos(psi[i]+np.pi/2), pt[1] + d_left * np.sin(psi[i]+np.pi/2), c="m", label="Interseção Esquerda (usando psi)")
-            if d_right is not None:
-                plt.scatter(pt[0] + d_right * np.cos(psi[i]-np.pi/2), pt[1] + d_right * np.sin(psi[i]-np.pi/2), c="c", label="Interseção Direita (usando psi)")
-            plt.scatter(pt[0], pt[1], c="k", label="Ponto Centerline")
+            plt.plot([pt[0], pt[0] + line_len_dbg * normal_left[0]],
+                     [pt[1], pt[1] + line_len_dbg * normal_left[1]], "g--", label="Normal Esquerda")
+            plt.plot([pt[0], pt[0] + line_len_dbg * normal_right[0]],
+                     [pt[1], pt[1] + line_len_dbg * normal_right[1]], "y--", label="Normal Direita")
             plt.scatter(pt[0], pt[1], c="k", label="Ponto Centerline")
             plt.legend()
-            plt.title("Interseção ausente para d_left ou d_right")
+            plt.title("Interseção ausente — usando fallback")
             plt.axis("equal")
             plt.show()
-            
-        n_l.append(d_left if d_left else n_l[-1] if n_l else 0)
-        n_r.append(d_right if d_right else n_r[-1] if n_r else 0)
 
-    # pós-processar n_l: substituir zeros pelo último valor não-zero (circular)
-    def _fill_circular_prev_nonzero(values):
-        arr = np.asarray(values, dtype=float).copy()
+        n_l.append(d_left if d_left is not None else np.nan)
+        n_r.append(d_right if d_right is not None else np.nan)
+        left_used_kd.append(used_kd_left)
+        right_used_kd.append(used_kd_right)
+
+    # Preencher eventuais NaNs por interpolação linear circular (evita o "usar anterior")
+    def _fill_circular_linear(values):
+        arr = np.asarray(values, dtype=float)
         N = arr.size
         if N == 0:
             return arr
-        nz_mask = arr != 0
-        if not np.any(nz_mask):
+        mask = ~np.isnan(arr)
+        if mask.all():
             return arr
-        start = np.argmax(nz_mask)  # primeiro índice não-zero
-        last = start
-        for k in range(1, N + 1):
-            idx = (start + k) % N
-            if arr[idx] == 0:
-                arr[idx] = arr[last]
-            else:
-                last = idx
+        if not np.any(mask):
+            return np.zeros_like(arr)
+        idx = np.arange(N)
+        x = np.r_[idx[mask], idx[mask][0] + N]
+        y = np.r_[arr[mask], arr[mask][0]]
+        arr[~mask] = np.interp(idx[~mask], x, y)
         return arr
 
-    n_l = _fill_circular_prev_nonzero(n_l)
-    n_r = _fill_circular_prev_nonzero(n_r)
-    return np.array(n_l), np.array(n_r)
+    n_l_raw = np.array(n_l, dtype=float)
+    n_r_raw = np.array(n_r, dtype=float)
+    n_l = n_l_raw.copy()
+    n_r = n_r_raw.copy()
+    left_used_kd = np.array(left_used_kd, dtype=bool)
+    right_used_kd = np.array(right_used_kd, dtype=bool)
+
+    # ignora segmentos que precisaram do fallback KDTree; interpola a partir de vizinhos válidos
+    n_l[left_used_kd] = np.nan
+    n_r[right_used_kd] = np.nan
+
+    n_l = _fill_circular_linear(n_l)
+    n_r = _fill_circular_linear(n_r)
+
+    # Em casos extremos onde a interpolação falha (tudo NaN), reutiliza o valor bruto calculado
+    nan_l = np.isnan(n_l)
+    nan_r = np.isnan(n_r)
+    if nan_l.any():
+        n_l[nan_l] = n_l_raw[nan_l]
+    if nan_r.any():
+        n_r[nan_r] = n_r_raw[nan_r]
+
+    # suavização leve para garantir curvas mais limpas
+    smooth_sigma = 2.0
+    if smooth_sigma > 0:
+        n_l = gaussian_filter1d(n_l, sigma=smooth_sigma, mode="wrap")
+        n_r = gaussian_filter1d(n_r, sigma=smooth_sigma, mode="wrap")
+
+    return n_l, n_r
 
 ##########################################
 # MÉTODO B - KDTree
