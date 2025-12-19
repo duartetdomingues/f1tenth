@@ -1,0 +1,175 @@
+# %% [markdown]
+# # Simulação e Pós-Processamento MPC
+# Este notebook executa a simulação apenas uma vez e guarda os resultados em `.npz`.
+# Depois, podes carregar e gerar quantos plots quiseres sem repetir a simulação.
+
+from sim_traj_mpc_curv_ls_v3 import MPCSim, load_params_file, load_track_csv, plot_states
+import numpy as np
+import matplotlib.pyplot as plt
+from pathlib import Path
+import sys
+import argparse
+from aux_func import frenet_to_global, handler_plots
+from matplotlib.collections import LineCollection
+import cv2, yaml
+from scipy.interpolate import splprep, splev
+from scipy.interpolate import CubicSpline
+
+
+
+# %% [markdown]
+# ## 1️⃣ Executar simulação (só uma vez)
+
+
+traj_default = Path("../../traj/centerline_0.10_test_map.csv")
+print("Traj default path:", traj_default.resolve())
+x_init = np.array([70.0, 0.01, 0.01 , 1.0, 0.01, 0.0], dtype=float)
+
+# parâmetros padrão
+car_config = Path("./car_model.yaml")
+mpc_config = Path("./mpc_config.yaml")
+
+print("Car config path:", car_config.resolve())
+print("MPC config path:", mpc_config.resolve())
+
+# carrega configs opcionais
+overrides = []
+if car_config.exists():
+    overrides.append(load_params_file(car_config))
+else:
+    print(f"Aviso: O arquivo de configuração do carro não foi encontrado em {car_config}")
+if mpc_config.exists():
+    overrides.append(load_params_file(mpc_config))
+else:
+    print(f"Aviso: O arquivo de configuração do MPC não foi encontrado em {mpc_config}")
+
+# executa simulação
+sim = MPCSim(track_csv=traj_default,
+             cfg_overrides=overrides,
+             track_width_override=None,
+             no_plot=False,
+             x_init=x_init)
+
+res = sim.run(sim_time=400.0)
+
+print(f"Done. Steps: {res.u_hist.shape[0]}, avg solve time: {res.solve_ms.mean():.2f} ms at {res.freq:.1f} Hz")
+
+# %% Plots
+# ## 2️⃣ Pós-simulação: Plots dos resultados
+
+plot_states(res.mpc_self, res.x_hist, res.u_hist, res.dt, save_prefix=None, show=True)
+
+# %% Thesis plots
+
+traj_default = "../../traj/centerline_0.10_test_map.csv"
+tr = load_track_csv(traj_default, track_width_override=None)
+traj2 = type('', (), {})()  # simple empty object
+traj2.tr = tr
+traj2.s_ref = tr["s"].copy()
+traj2.kappa_ref = tr["kappa"].copy()
+traj2.d_left = tr["nl"].copy()
+traj2.d_right = tr["nr"].copy()
+
+mpc_self = res.mpc_self
+x_hist = res.x_hist
+u_hist = res.u_hist
+
+contours = np.load("../../traj/contours_test_map.npz")
+contour1_r = contours["contour1_r"]
+contour2_r = contours["contour2_r"]
+
+
+def load_map(map_path, yaml_path):
+    map_img = cv2.imread(map_path, cv2.IMREAD_GRAYSCALE)
+    if map_img is None:
+        raise FileNotFoundError(f"Não foi possível ler: {map_path}")
+
+    with open(yaml_path, 'r') as f:
+        yaml_data = yaml.safe_load(f)
+
+    try:
+        resolution = yaml_data['resolution']
+        origin = yaml_data['origin'][:2]
+    except KeyError as e:
+        raise KeyError(f"Chave ausente no arquivo YAML: {e}")
+
+    map_img = np.flipud(map_img)
+    binary = (map_img > 150).astype(np.uint8) * 255
+    return map_img, binary, resolution, origin
+
+map_img, binary, resolution, origin = load_map(
+    "../../maps/test_map/map_output.png", "../../maps/test_map/map_output.yaml")
+h, w = map_img.shape
+# Extent in world (meters): [xmin, xmax, ymin, ymax]
+extent = [origin[0], origin[0] + w * resolution,
+          origin[1], origin[1] + h * resolution]
+
+# %% plot track with boundaries and vehicle position
+
+fig, ax = plt.subplots(figsize=(10, 6))
+ax.imshow(binary, cmap="gray", origin="lower", extent=extent, aspect='equal')
+ax.plot(traj2.tr["x"], traj2.tr["y"], label="Centerline", color="green", zorder=1)
+ax.plot(contour1_r[:, 0], contour1_r[:, 1],
+        label="Left Boundary", color="blue", linestyle="--")
+ax.plot(contour2_r[:, 0], contour2_r[:, 1],
+        label="Right Boundary", color="red", linestyle="--")
+ax.set_xlabel("X [m]")
+ax.set_ylabel("Y [m]")
+ax.set_title("Track with Boundaries and Vehicle Position")
+ax.set_xlim(extent[0], extent[1])
+ax.set_ylim(extent[2], extent[3])
+ax.set_aspect('equal', adjustable='box')  # evita faixas brancas mantendo proporção
+ax.legend()
+# Color the predicted path by velocity (v_x)
+[x, y, psi] = frenet_to_global(x_hist[5:,0], x_hist[5:,1], x_hist[5:,2], mpc_self.tr)
+v_x = x_hist[5:, 3]
+
+# Corrige o fechamento para que o spline aceite bc_type='periodic'
+x_adj = x.copy()
+y_adj = y.copy()
+v_adj = v_x.copy()
+
+# Forçar fechamento numérico (sem criar salto perceptível)
+x_adj[-1] = x_adj[0]
+y_adj[-1] = y_adj[0]
+v_adj[-1] = v_adj[0]
+
+# Gerar parâmetro normalizado
+t = np.linspace(0, 1, len(x_adj))
+
+# Criar splines periódicos
+x_spline = CubicSpline(t, x_adj, bc_type='periodic')
+y_spline = CubicSpline(t, y_adj, bc_type='periodic')
+v_spline = CubicSpline(t, v_adj, bc_type='periodic')
+
+# Reamostrar para suavizar
+x_smooth = x_spline(t)
+y_smooth = y_spline(t)
+v_smooth = v_spline(t)
+
+v_x = v_smooth
+
+points = np.array([x_smooth, y_smooth]).T.reshape(-1, 1, 2)
+#points = np.array([x, y]).T.reshape(-1, 1, 2)
+
+segments = np.concatenate([points[:-1], points[1:]], axis=1)
+lc = LineCollection(segments, cmap='turbo', norm=plt.Normalize(np.min(v_x), np.max(v_x)))
+lc.set_array(v_x)
+lc.set_linewidth(3)
+ax.add_collection(lc)
+cbar = plt.colorbar(lc, ax=ax, pad=0.02)
+cbar.set_label("Velocity $v_x$ [m/s]")
+cbar.ax.yaxis.set_major_locator(plt.MaxNLocator(nbins=10))  # mais divisões na escala
+
+
+# %% Plot Boxplot of solve times
+fig2, ax2 = plt.subplots(figsize=(6, 4))
+ax2.boxplot(res.solve_ms, vert=True, patch_artist=True, boxprops=dict(facecolor='lightblue'))
+ax2.set_ylabel("Solve Time [ms]")
+ax2.set_title("MPC Solve Time Distribution")
+ax2.grid(axis='y')
+plt.show()
+
+# %% Save solve times data .npz
+np.savez("mpc_solve_times_ls_v3.npz", solve_ms=res.solve_ms, freq=res.freq)
+# %%
