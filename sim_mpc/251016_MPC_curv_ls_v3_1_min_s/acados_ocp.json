@@ -1,7 +1,7 @@
 {
-    "acados_include_path": "/home/duarte/acados/include",
-    "acados_lib_path": "/home/duarte/acados/lib",
-    "code_export_directory": "/home/duarte/Desktop/f1tenth/sim_mpc/251016_MPC_curv_ls_v3_min_s/c_generated_code",
+    "acados_include_path": "/home/desktop/acados/include",
+    "acados_lib_path": "/home/desktop/acados/lib",
+    "code_export_directory": "/home/desktop/f1tenth/sim_mpc/251016_MPC_curv_ls_v3_1_min_s/c_generated_code",
     "constraints": {
         "C": [],
         "C_e": [],
@@ -46,6 +46,9 @@
             4,
             5
         ],
+        "idxs_rev": [],
+        "idxs_rev_0": [],
+        "idxs_rev_e": [],
         "idxsbu": [],
         "idxsbx": [],
         "idxsbx_e": [],
@@ -102,6 +105,9 @@
         "lphi": [],
         "lphi_0": [],
         "lphi_e": [],
+        "ls": [],
+        "ls_0": [],
+        "ls_e": [],
         "lsbu": [],
         "lsbx": [],
         "lsbx_e": [],
@@ -158,6 +164,9 @@
         "uphi": [],
         "uphi_0": [],
         "uphi_e": [],
+        "us": [],
+        "us_0": [],
+        "us_e": [],
         "usbu": [],
         "usbx": [],
         "usbx_e": [],
@@ -352,8 +361,8 @@
         "zu_e": []
     },
     "cython_include_dirs": [
-        "/home/duarte/.local/lib/python3.11/site-packages/numpy/core/include",
-        "/home/duarte/.pyenv/versions/3.11.6/include/python3.11"
+        "/home/desktop/.local/lib/python3.10/site-packages/numpy/core/include",
+        "/usr/include/python3.10"
     ],
     "dims": {
         "N": 20,
@@ -420,11 +429,11 @@
         "mpc_model_cost/mpc_model_cost_y_e_fun_jac_ut_xt.c",
         "mpc_model_cost/mpc_model_cost_y_e_hess.c"
     ],
-    "json_file": "/home/duarte/Desktop/f1tenth/sim_mpc/251016_MPC_curv_ls_v3_min_s/acados_ocp.json",
+    "json_file": "/home/desktop/f1tenth/sim_mpc/251016_MPC_curv_ls_v3_1_min_s/acados_ocp.json",
     "model": {
-        "con_h_expr": "@1=fmod(s,85.7), vertcat(((n+right_bound_s(@1){0})-safety_margin), ((n-left_bound_s(@1){0})+safety_margin))",
-        "con_h_expr_0": "@1=fmod(s,85.7), vertcat(((n+right_bound_s(@1){0})-safety_margin), ((n-left_bound_s(@1){0})+safety_margin))",
-        "con_h_expr_e": "@1=fmod(s,85.7), vertcat(((n+right_bound_s(@1){0})-safety_margin), ((n-left_bound_s(@1){0})+safety_margin))",
+        "con_h_expr": "@1=fmod(s,82), vertcat(((n+right_bound_s(@1){0})-safety_margin), ((n-left_bound_s(@1){0})+safety_margin))",
+        "con_h_expr_0": "@1=fmod(s,82), vertcat(((n+right_bound_s(@1){0})-safety_margin), ((n-left_bound_s(@1){0})+safety_margin))",
+        "con_h_expr_e": "@1=fmod(s,82), vertcat(((n+right_bound_s(@1){0})-safety_margin), ((n-left_bound_s(@1){0})+safety_margin))",
         "con_phi_expr": [],
         "con_phi_expr_0": [],
         "con_phi_expr_e": [],
@@ -449,9 +458,9 @@
         "cost_r_in_psi_expr": [],
         "cost_r_in_psi_expr_0": [],
         "cost_r_in_psi_expr_e": [],
-        "cost_y_expr": "vertcat(n, theta, ((v_x*cos(theta))/(1-(kapparef_s(fmod(s,85.7)){0}*n))), yaw_rate, u_delta_dot, u_v_x_dot)",
-        "cost_y_expr_0": "vertcat(n, theta, ((v_x*cos(theta))/(1-(kapparef_s(fmod(s,85.7)){0}*n))), yaw_rate, u_delta_dot, u_v_x_dot)",
-        "cost_y_expr_e": "vertcat(n, theta, ((v_x*cos(theta))/(1-(kapparef_s(fmod(s,85.7)){0}*n))), yaw_rate)",
+        "cost_y_expr": "vertcat(n, theta, ((v_x*cos(theta))/(1-(kapparef_s(fmod(s,82)){0}*n))), yaw_rate, u_delta_dot, u_v_x_dot)",
+        "cost_y_expr_0": "vertcat(n, theta, ((v_x*cos(theta))/(1-(kapparef_s(fmod(s,82)){0}*n))), yaw_rate, u_delta_dot, u_v_x_dot)",
+        "cost_y_expr_e": "vertcat(n, theta, ((v_x*cos(theta))/(1-(kapparef_s(fmod(s,82)){0}*n))), yaw_rate)",
         "disc_dyn_expr": [],
         "dyn_disc_fun": null,
         "dyn_disc_fun_jac": null,
@@ -461,7 +470,7 @@
         "dyn_impl_dae_fun": null,
         "dyn_impl_dae_fun_jac": null,
         "dyn_impl_dae_jac": null,
-        "f_expl_expr": "@1=kapparef_s(fmod(s,85.7)){0}, @2=((v_x*cos(theta))/(1-(@1*n))), vertcat(@2, (v_x*sin(theta)), (yaw_rate-(@1*@2)), u_v_x_dot, (3.25733*((u_v_x_dot*delta)+(v_x*u_delta_dot))), u_delta_dot)",
+        "f_expl_expr": "@1=kapparef_s(fmod(s,82)){0}, @2=((v_x*cos(theta))/(1-(@1*n))), vertcat(@2, (v_x*sin(theta)), (yaw_rate-(@1*@2)), u_v_x_dot, (3.25733*((u_v_x_dot*delta)+(v_x*u_delta_dot))), u_delta_dot)",
         "f_impl_expr": [],
         "gnsf_nontrivial_f_LO": 1,
         "gnsf_purely_linear": 0,

@@ -289,6 +289,8 @@ class MPCSim:
         u_hist = []
         status_hist = []
         solve_ms = []
+        lap_times = []
+        start_lap_time = 0.0
 
         #x_hist.append(self.x.copy())
 
@@ -301,9 +303,31 @@ class MPCSim:
                 if user_input == "p":
                     print("Simulation paused by user.")
                     break
-            if self.x[0]> self.s_ref[-1]:
-                print("Simulation finished: car reached the end of the track.")
-                break
+            if self.x[0] > s_ref_lap:
+                lap_time = k * self.dt - start_lap_time
+                lap_times.append(lap_time)
+                print(f"Lap completed in {lap_time:.2f} seconds.")
+                start_lap_time = k * self.dt
+                s_ref_lap += self.s_ref[-1]
+                if len(lap_times) == 2:  # Limit to 2 laps for brevity
+                    print("Maximum number of laps reached. Ending simulation.")
+                    log_dir = Path(__file__).parent / "Log_Data"
+                    log_dir.mkdir(exist_ok=True)
+                    filename = log_dir / f"lap_data_mpc_{time.strftime('%d_%m_%Y_%H_%M_%S')}.npz"
+                    np.savez(
+                            filename,
+                            track=self.tr,
+                            x_hist=np.array(x_hist),
+                            u_hist=np.array(u_hist),
+                            xN=self.xN,
+                            uN=self.uN
+                        )
+                    break
+                else:
+                    x_hist = x_hist[-2:]
+                    u_hist = u_hist[-2:]
+                    self.xN = self.xN[-2:]
+                    self.uN = self.uN[-2:]
             
             status, xN, uN, ms = self._solve_one_step()
             status_hist.append(status)
@@ -436,7 +460,7 @@ def main():
     #traj_default = Path("./traj/track_data.csv")
 
     # Exemplo: [s, n, mu, vx, r, delta] 27
-    x_init = np.array([5.0, 0.1, 3.14 , 1.0, 0.01, 0.0], dtype=float)
+    x_init = np.array([5.0, 0.1, 0.1 , 1.0, 0.01, 0.0], dtype=float)
 
     ap = argparse.ArgumentParser(
         description="Closed-loop MPC sim (acados) — class-based"
