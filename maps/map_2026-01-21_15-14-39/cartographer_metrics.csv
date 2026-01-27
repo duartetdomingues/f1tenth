@@ -1,0 +1,30 @@
+Metric,Value
+Constraints Found,22.0
+Constraints Searched,163.0
+MatchingResult Score,2443.0
+InsertionResult Score,624.0
+Matching Rate (%),13.5
+Latency (s),0.095885286
+Submaps:,"{'active': 8.0, 'frozen': 0.0, 'deleted': 0.0}"
+Num Submap Scan Matchers,6.0
+Work Queue Delay (s),0.0
+Real-time Ratio (Sensor / Wall clock duration),1.0446211736803914
+CPU Real-time Ratio (Sensor / Cpu duration),8.221879219133594
+
+"Matching Score Bucket (Bucket , Count)"
+
+"Local Trajectory Builder Residuals (Bucket , Count)"
+0.01,4525.0
+0.02,275.0
+0.04,64.0
+0.08,16.0
+0.16,4.0
+
+"Local Trajectory Builder Costs (Bucket , Count)"
+0.01,402.0
+0.02,521.0
+0.04,971.0
+0.08,443.0
+0.16,105.0
+
+"Local Trajectory Builder Scores (Bucket , Count)"
